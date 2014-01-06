@@ -1,0 +1,12 @@
+rm -f minFunc/compiled/*.mex*
+rm -f KPM/compiled/*.mex*
+rm -f DAGlearn/ancestorMatrix/compiled/*.mex*
+rm -f L1GeneralGroup/compiled/*.mex*
+rm -f L1GeneralOverlappingGroup/compiled/*.mex*
+rm -f UGM/compiled/*.mex*
+rm -f LLM2/compiled/*.mex*
+rm -f LLM/compiled/*.mex*
+rm -f UGMep/compiled/*.mex*
+rm -f Foreign/Ewout/compiled/*.mex*
+rm -f misc/compiled/*.mex*
+rm -f SAG/compiled/*.mex*
