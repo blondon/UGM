@@ -8,4 +8,4 @@ function  [nodeLabels] = UGM_Decode_MaxOfMarginals(nodePot, edgePot, edgeStruct,
 % nodeLabel(node)
 
 nodeBel = inferFunc(nodePot,edgePot,edgeStruct,varargin{:});
-[junk nodeLabels] = max(nodeBel,[],2);
+[~,nodeLabels] = max(nodeBel,[],2);

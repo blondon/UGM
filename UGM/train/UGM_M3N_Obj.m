@@ -42,6 +42,9 @@ for i = 1:nInstances
     
     % Do Loss-Augmented Decoding
     yMAP = decodeFunc(nodePot,edgePot,edgeStruct,varargin{:});
+	if edgeStruct.useMex
+		yMAP = int32(yMAP);
+	end
     
     % Update objective
     if edgeStruct.useMex
