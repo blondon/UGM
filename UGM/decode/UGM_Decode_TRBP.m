@@ -1,30 +1,45 @@
-function [nodeLabels] = UGM_Decode_TRBP(nodePot,edgePot,edgeStruct)
-% Assumes no ties
+function [nodeLabels,mu] = UGM_Decode_TRBP(nodePot,edgePot,edgeStruct,edgeDist)
+%
+% Approximate decoding based on tree-reweighted beliefe propagation.
+% Note: assumes no ties.
 
+if nargin >= 4
+	mu = edgeDist;
+elseif isfield(edgeStruct,'edgeDist')
+	mu = edgeStruct.edgeDist;
+else
+	mu = 1;
+end
+[nNodes,maxStates] = size(nodePot);
 nEdges = size(edgePot,3);
 
-% Compute Edge Appearance Probabilities
-if 0
-	% Ordinary BP
-	mu = ones(nEdges,1);
-else
-	% Generate Random Spanning Trees until all edges are covered
-	[nNodes,maxState] = size(nodePot);
-	edgeEnds = edgeStruct.edgeEnds;
-	
-	i = 0;
-	edgeAppears = zeros(nEdges,1);
-	while 1
-		i = i+1;
-		edgeAppears = edgeAppears+minSpan(nNodes,[edgeEnds rand(nEdges,1)]);
-		if all(edgeAppears > 0)
-			break;
+%% Find tree weights
+if isscalar(mu) % Weights not provided, construct them using one of the methods below
+	% Compute Edge Appearance Probabilities
+	if mu == 0
+		mu = ones(nEdges,1); % Ordinary BP (not a valid distribution over trees, so not convex)
+	elseif mu == 1
+		% Generate Random Spanning Trees until all edges are covered
+		[nNodes,maxState] = size(nodePot);
+		edgeEnds = edgeStruct.edgeEnds;
+		
+		i = 0;
+		edgeAppears = zeros(nEdges,1);
+		while 1
+			i = i+1;
+			edgeAppears = edgeAppears+minSpan(nNodes,[edgeEnds rand(nEdges,1)]);
+			if all(edgeAppears > 0)
+				break;
+			end
 		end
+		mu = edgeAppears/i;
+	elseif mu == 2
+		% Compute all spanning trees of the dense graph (not a valid distribution over trees for over graphs)
+		mu = ((nNodes-1)/nEdges)*ones(nEdges,1);
 	end
-	mu = edgeAppears/i;
 end
 
-%%
+%% BP
 if edgeStruct.useMex
 	nodeBel = UGM_Decode_TRBPC(nodePot,edgePot,edgeStruct.edgeEnds,edgeStruct.nStates,edgeStruct.V,edgeStruct.E,int32(edgeStruct.maxIter),mu);
 else
@@ -55,4 +70,6 @@ else
 		nodeBel(n,1:nStates(n)) = prod_of_msgs(1:nStates(n),n)'./sum(prod_of_msgs(1:nStates(n),n));
 	end
 end
+
+%% Decoding
 [pot nodeLabels] = max(nodeBel,[],2);
