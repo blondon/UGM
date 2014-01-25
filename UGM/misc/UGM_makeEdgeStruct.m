@@ -19,7 +19,7 @@ assert(nnz(diag(adj))==0,'Adjacency matrix has nonzero diagonals');
 assert(nnz(adj~=adj')==0,'Adjacency matrix is not symmetric');
 
 [I J] = find(triu(adj,1));
-edgeEnds = [I J];
+edgeEnds = int32([I J]);
 
 % OLD VERSION - SLOW!
 % [i j] = ind2sub([nNodes nNodes],find(adj));
