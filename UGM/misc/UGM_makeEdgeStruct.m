@@ -15,17 +15,24 @@ end
 UGM_assert(nNodes==nNodes2,'Adjacency matrix must be square');
 nNodes = int32(nNodes);
 
-[i j] = ind2sub([nNodes nNodes],find(adj));
-nEdges = length(i)/2;
-edgeEnds = zeros(nEdges,2,'int32');
-eNum = 0;
-for e = 1:length(i)
-   if j(e) < i(e)
-       edgeEnds(eNum+1,:) = [j(e) i(e)];
-       eNum = eNum+1;
-   end
-end
-assert(eNum==nEdges,'Something is wrong with the adjacency matrix (possibly non-symmetric, or non-zero on diagonals)');
+assert(nnz(diag(adj))==0,'Adjacency matrix has nonzero diagonals');
+assert(nnz(adj~=adj')==0,'Adjacency matrix is not symmetric');
+
+[I J] = find(triu(adj,1));
+edgeEnds = [I J];
+
+% OLD VERSION - SLOW!
+% [i j] = ind2sub([nNodes nNodes],find(adj));
+% nEdges = length(i)/2;
+% edgeEnds = zeros(nEdges,2,'int32');
+% eNum = 0;
+% for e = 1:length(i)
+%    if j(e) < i(e)
+%        edgeEnds(eNum+1,:) = [j(e) i(e)];
+%        eNum = eNum+1;
+%    end
+% end
+% assert(eNum==nEdges,'Something is wrong with the adjacency matrix (possibly non-symmetric, or non-zero on diagonals)');
 
 [V,E] = UGM_makeEdgeVE(edgeEnds,nNodes,useMex);
 
