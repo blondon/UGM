@@ -1,12 +1,16 @@
-function [nodeBel, edgeBel, logZ] = UGM_Infer_TRBP(nodePot,edgePot,edgeStruct,mu)
+function [nodeBel, edgeBel, logZ] = UGM_Infer_TRBP(nodePot,edgePot,edgeStruct,edgeDist)
 
-if nargin < 4
-    mu = 1;
+if nargin >= 4
+	mu = edgeDist;
+elseif isfield(edgeStruct,'edgeDist')
+	mu = edgeStruct.edgeDist;
+else
+	mu = 1;
 end
-
 [nNodes,maxStates] = size(nodePot);
 nEdges = size(edgePot,3);
 
+%% Find tree weights
 if isscalar(mu) % Weights not provided, construct them using one of the methods below
 	% Compute Edge Appearance Probabilities
 	if mu == 0
@@ -51,7 +55,6 @@ nStates = edgeStruct.nStates;
 
 maximize = 0;
 new_msg = UGM_TRBP(nodePot,edgePot,edgeStruct,maximize,mu);
-
 
 %% Compute nodeBel
 nodeBel = zeros(nNodes,maxState);
