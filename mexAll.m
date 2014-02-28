@@ -44,6 +44,7 @@ mex -IUGM/mex -outdir UGM/compiled UGM/mex/UGM_Infer_MFC.c
 mex -IUGM/mex -outdir UGM/compiled UGM/mex/UGM_Infer_LBPC.c
 mex -IUGM/mex -outdir UGM/compiled UGM/mex/UGM_Decode_LBPC.c
 mex -IUGM/mex -outdir UGM/compiled UGM/mex/UGM_Infer_TRBPC.c
+mex -IUGM/mex -outdir UGM/compiled UGM/mex/UGM_Infer_CTRBPC.c
 mex -IUGM/mex -outdir UGM/compiled UGM/mex/UGM_Decode_TRBPC.c
 mex -IUGM/mex -outdir UGM/compiled UGM/mex/UGM_CRF_makePotentialsC.c
 mex -IUGM/mex -outdir UGM/compiled UGM/mex/UGM_CRF_PseudoNLLC.c
