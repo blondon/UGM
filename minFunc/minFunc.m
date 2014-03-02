@@ -965,7 +965,7 @@ for i = 1:maxIter
 
     if ~isLegal(d)
         fprintf('Step direction is illegal!\n');
-        pause;
+%         pause;
         return
     end
 
