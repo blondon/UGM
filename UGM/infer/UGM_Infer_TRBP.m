@@ -10,32 +10,13 @@ end
 [nNodes,maxStates] = size(nodePot);
 nEdges = size(edgePot,3);
 
-%% Find tree weights
-if isscalar(mu) % Weights not provided, construct them using one of the methods below
-	% Compute Edge Appearance Probabilities
-	if mu == 0
-		mu = ones(nEdges,1); % Ordinary BP (not a valid distribution over trees, so not convex)
-	elseif mu == 1
-		% Generate Random Spanning Trees until all edges are covered
-		[nNodes,maxState] = size(nodePot);
-		edgeEnds = edgeStruct.edgeEnds;
-		
-		i = 0;
-		edgeAppears = zeros(nEdges,1);
-		while 1
-			i = i+1;
-			edgeAppears = edgeAppears+minSpan(nNodes,[edgeEnds rand(nEdges,1)]);
-			if all(edgeAppears > 0)
-				break;
-			end
-		end
-		mu = edgeAppears/i;
-	elseif mu == 2
-		% Compute all spanning trees of the dense graph (not a valid distribution over trees for over graphs)
-		mu = ((nNodes-1)/nEdges)*ones(nEdges,1);
-	end
+% Find tree weights
+if isscalar(mu)
+	% Weights not provided, construct them using method specified in mu.
+	mu = UGM_makeEdgeDistribution(edgeStruct,mu);
 end
 
+% Run TRBP
 if edgeStruct.useMex
     [nodeBel,edgeBel,logZ] = UGM_Infer_TRBPC(nodePot,edgePot,edgeStruct.edgeEnds,edgeStruct.nStates,edgeStruct.V,edgeStruct.E,int32(edgeStruct.maxIter),mu);
 else
@@ -43,7 +24,7 @@ else
 end
 end
 
-%%
+%% Non-mex version
 function [nodeBel, edgeBel, logZ] = Infer_TRBP(nodePot,edgePot,edgeStruct,mu)
 
 [nNodes,maxState] = size(nodePot);
