@@ -25,7 +25,7 @@ switch(type)
 		i = 0;
 		edgeAppears = zeros(nEdge,1);
 		while i < maxIters
-			i = i+1
+			i = i+1;
 			weights = rand(nEdge,1) .* (1+edgeAppears);
 			edgeAppears = edgeAppears+minSpan(nNode,[edgeEnds weights]);
 			if all(edgeAppears > 0)
