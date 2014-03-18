@@ -1,13 +1,16 @@
-function mu = UGM_makeEdgeDistribution(edgeStruct,type,maxIters)
+function mu = UGM_makeEdgeDistribution(edgeStruct,type,varargin)
 %
 % Computes the edge distribution for TRBP.
 %
+% edgeStruct : edge structure
+% type : type of distribution
+%			0 : P(edge) = 1 uniformly (ordinary BP)
+%			1 : (def) Generates random MSTs until all edges covered at least once
+%			2 : Computes all spanning trees of the dense graph
+%			3 : Approximate edge distribution of a grid (requires [nRows nCols])
 
 if nargin < 2
 	type = 1;
-end
-if nargin < 3
-	maxIters = 1000;
 end
 
 nNode = edgeStruct.nNodes;
@@ -21,6 +24,11 @@ switch(type)
 		
 	case 1
 		% Generate Random Spanning Trees until all edges are covered
+		if isempty(varargin)
+			maxIters = 1000;
+		else
+			maxIters = varargin{1};
+		end
 		edgeEnds = edgeStruct.edgeEnds;
 		i = 0;
 		edgeAppears = zeros(nEdge,1);
@@ -47,13 +55,25 @@ switch(type)
 		
 	case 3
 		% Approximate edge distribution of a grid
+		assert(length(varargin)>=1,...
+			'USAGE: UGM_makeEdgeDistribution(edgeStruct,3,nRows,nCols) or UGM_makeEdgeDistribution(edgeStruct,3,[nRows nCols])')
+		dims = cell2mat(varargin);
+		nRows = dims(1);
+		nCols = dims(2);
 		mu = zeros(nEdge,1);
 		edgeEnds = edgeStruct.edgeEnds;
 		for e = 1:nEdge
 			n1 = edgeEnds(e,1);
 			n2 = edgeEnds(e,2);
-			% Check for boundary edge
-			%TODO
+			% Check whether edge is vertical or horizontal
+			%   If the edge is vertical, |n1-n2| = 1
+			if abs(n1-n2) == 1
+				% Vertical edge probability is (nRows+1)/(nRows+nCols)
+				mu(e) = (nRows+1) / (nRows+nCols);
+			else
+				% Horizontal edge probability is (nCols+1)/(nRows+nCols)
+				mu(e) = (nCols+1) / (nRows+nCols);
+			end
 		end
 		
 end
