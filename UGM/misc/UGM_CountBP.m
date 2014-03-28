@@ -5,8 +5,12 @@ nEdges = size(edgePot,3);
 edgeEnds = edgeStruct.edgeEnds;
 nStates = double(edgeStruct.nStates);
 
-% Paramterize tolerance later?
-convTol = 1e-4;
+% Convergence tolerance
+if isfield(edgeStruct,'convTol')
+	convTol = edgeStruct.convTol;
+else
+	convTol = 1e-4;
+end
 
 % Initialize
 msg_i = zeros(maxState,nEdges*2);
@@ -105,5 +109,6 @@ for i = 1:edgeStruct.maxIter
 	old_msg_o = msg_o;
 end
 if i == edgeStruct.maxIter
-	fprintf('Loopy did not converge\n');
+	fprintf('CountBP did not converge after %d iterations\n',edgeStruct.maxIter);
 end
+% fprintf('CountBP stopped after %d iterations\n',i);

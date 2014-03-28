@@ -6,9 +6,9 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 {
 	/* Variables */
 	int n,s,e,e2,n1,n2,neigh,Vind,Vind2,s1,s2,
-			nNodes,nEdges,maxState,dims[3],
-			iter,maxIter,nNbrs,notConverged,
-			*edgeEnds,*nStates,*V,*E,*y;
+		nNodes,nEdges,maxState,dims[3],
+		iter,maxIter,nNbrs,notConverged,
+		*edgeEnds,*nStates,*V,*E,*y;
 	
 	double *nodePot,*edgePot,*nodeCount,*edgeCount,
 			*nodeBel,*edgeBel,*logZ,
@@ -16,7 +16,6 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 			*msg_i,*msg_o,*tmp_i,*tmp_o,*old_msg_i,*old_msg_o,
 			z,convTol,
 			energy1,energy2,entropy1,entropy2;
-// 			*prodMsgs,*oldMsgs,*newMsgs,*tmp;
 	
 	/* Input */
 	nodePot = mxGetPr(prhs[0]);
@@ -28,6 +27,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 	V = (int*)mxGetPr(prhs[6]);
 	E = (int*)mxGetPr(prhs[7]);
 	maxIter = ((int*)mxGetPr(prhs[8]))[0];
+	convTol = ((double*)mxGetPr(prhs[9]))[0];
 	
 	if (!mxIsClass(prhs[4],"int32")
 	||!mxIsClass(prhs[5],"int32")
@@ -59,7 +59,6 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 	tmp_o = mxCalloc(maxState*nEdges*2,sizeof(double));
 	old_msg_i = mxCalloc(maxState*nEdges*2,sizeof(double));
 	old_msg_o = mxCalloc(maxState*nEdges*2,sizeof(double));
-	convTol = 1e-4;
 
 	/* Initialize */
 	for (e = 0; e < nEdges; e++)
@@ -96,12 +95,14 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 			for (s1 = 0; s1 < nStates[n1]; s1++) {
 				tmp_i[s1+maxState*e] = 0.0;
 				for (s2 = 0; s2 < nStates[n1]; s2++)
-					tmp_i[s1+maxState*e] += edgePot[s1+maxState*(s2+maxState*e)] * msg_o[s2+maxState*(e+nEdges)];
+					tmp_i[s1+maxState*e] += edgePot[s1+maxState*(s2+maxState*e)]
+										  * msg_o[s2+maxState*(e+nEdges)];
 			}
 			for (s2 = 0; s2 < nStates[n1]; s2++) {
 				tmp_i[s2+maxState*(e+nEdges)] = 0.0;
 				for (s1 = 0; s1 < nStates[n1]; s1++)
-					tmp_i[s2+maxState*(e+nEdges)] += edgePot[s1+maxState*(s2+maxState*e)] * msg_o[s1+maxState*e];
+					tmp_i[s2+maxState*(e+nEdges)] += edgePot[s1+maxState*(s2+maxState*e)]
+												   * msg_o[s1+maxState*e];
 			}
 
 			/* Outgoing */
@@ -148,10 +149,10 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 			n2 = edgeEnds[e+nEdges]-1;
 			
 			/* Exponent variables */
-			q1 = (1-nodeCount[n1]) / (V[n1]-V[n1+1]);
-			q2 = (1-nodeCount[n2]) / (V[n2]-V[n2+1]);
-			d1 = edgeCount[e] - q1 + 1;
-			d2 = edgeCount[e] - q2 + 1;
+			q1 = (1.0-nodeCount[n1]) / (V[n1+1]-V[n1]);
+			q2 = (1.0-nodeCount[n2]) / (V[n2+1]-V[n2]);
+			d1 = edgeCount[e] - q1 + 1.0;
+			d2 = edgeCount[e] - q2 + 1.0;
 
 			/* Incoming */
 			z = 0.0;
@@ -165,7 +166,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 			z = 0.0;
 			for (s = 0; s < nStates[n2]; s++) {
 				msg_i[s+maxState*(e+nEdges)] = pow(tmp_i[s+maxState*(e+nEdges)],edgeCount[e]/d2)
-											* pow(tmp_o[s+maxState*(e+nEdges)],(q2-edgeCount[e])/d2);
+											 * pow(tmp_o[s+maxState*(e+nEdges)],(q2-edgeCount[e])/d2);
 				z += msg_i[s+maxState*(e+nEdges)];
 			}
 			for (s = 0; s < nStates[n2]; s++)
@@ -183,13 +184,13 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 			z = 0.0;
 			for (s = 0; s < nStates[n2]; s++) {
 				msg_o[s+maxState*(e+nEdges)] = pow(tmp_i[s+maxState*(e+nEdges)],(q2-1)/d2)
-											* pow(tmp_o[s+maxState*(e+nEdges)],1/d2);
+											 * pow(tmp_o[s+maxState*(e+nEdges)],1/d2);
 				z += msg_o[s+maxState*(e+nEdges)];
 			}
 			for (s = 0; s < nStates[n2]; s++)
 				msg_o[s+maxState*(e+nEdges)] /= z;
 		}
-		
+	
 		/* Check convergence */
 		notConverged = 0;
 		for (s = 0; s < maxState; s++) {
@@ -208,108 +209,87 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 		}
 	}
 	
-// 	if(iter == maxIter)
-// 		printf("LBP reached maxIter of %d iterations\n",maxIter);
+	if(iter == maxIter)
+		printf("CountBP did not converge after %d iterations\n",maxIter);
 // 	printf("Stopped after %d iterations\n",iter);
 	
-
-// 	/* Compute nodeBel */
-// 	for(n = 0; n < nNodes; n++)
-// 	{
-// 		for(s = 0; s < nStates[n]; s++)
-// 			prodMsgs[s+maxState*n] = nodePot[n+nNodes*s];
-// 		
-// 		for(Vind = V[n]-1; Vind < V[n+1]-1; Vind++)
-// 		{
-// 			e = E[Vind]-1;
-// 			n1 = edgeEnds[e]-1;
-// 			n2 = edgeEnds[e+nEdges]-1;
-// 			
-// 			if (n == n2)
-// 			{
-// 				for(s = 0; s < nStates[n]; s++)
-// 				{
-// 					prodMsgs[s+maxState*n] *= newMsgs[s+maxState*e];
-// 				}
-// 			}
-// 			else
-// 			{
-// 				for(s = 0; s < nStates[n]; s++)
-// 				{
-// 					prodMsgs[s+maxState*n] *= newMsgs[s+maxState*(e+nEdges)];
-// 				}
-// 			}
-// 		}
-// 		
-// 		z = 0;
-// 		for(s = 0; s < nStates[n]; s++)
-// 		{
-// 			nodeBel[n + nNodes*s] = prodMsgs[s+maxState*n];
-// 			z = z + nodeBel[n+nNodes*s];
-// 		}
-// 		for(s = 0; s < nStates[n]; s++)
-// 			nodeBel[n + nNodes*s] /= z;
-// 	}
-// 	
-// 	
-// 	/* Compute edgeBel */
-// 	for(e = 0; e < nEdges; e++)
-// 	{
-// 		n1 = edgeEnds[e]-1;
-// 		n2 = edgeEnds[e+nEdges]-1;
-// 		z = 0;
-// 		for(s1 = 0; s1 < nStates[n1]; s1++)
-// 		{
-// 			for(s2 = 0; s2 < nStates[n2]; s2++)
-// 			{
-// 				edgeBel[s1+maxState*(s2+maxState*e)] = nodeBel[n1+nNodes*s1]/newMsgs[s1+maxState*(e+nEdges)];
-// 				edgeBel[s1+maxState*(s2+maxState*e)] *= nodeBel[n2+nNodes*s2]/newMsgs[s2+maxState*e];
-// 				edgeBel[s1+maxState*(s2+maxState*e)] *= edgePot[s1+maxState*(s2+maxState*e)];
-// 				z += edgeBel[s1+maxState*(s2+maxState*e)];
-// 			}
-// 		}
-// 		for(s1 = 0; s1 < nStates[n1]; s1++)
-// 		{
-// 			for(s2 = 0; s2 < nStates[n2]; s2++)
-// 				edgeBel[s1+maxState*(s2+maxState*e)] /= z;
-// 		}
-// 	}
-// 	
-// 	/* Compute Bethe Free Energy */
-// 	energy1 = 0;
-// 	energy2 = 0;
-// 	entropy1 = 0;
-// 	entropy2 = 0;
-// 	for(n = 0; n < nNodes; n++)
-// 	{
-// 		nNbrs = V[n+1]-V[n];
-// 		for(s = 0; s < nStates[n]; s++)
-// 		{
-// 			if(nodeBel[n+nNodes*s] > 1e-10)
-// 				entropy1 += (nNbrs-1)*nodeBel[n+nNodes*s]*log(nodeBel[n+nNodes*s]);
-// 			
-// 			energy1 -= nodeBel[n+nNodes*s]*log(nodePot[n+nNodes*s]);
-// 		}
-// 	}
-// 	for(e = 0; e < nEdges; e++)
-// 	{
-// 		n1 = edgeEnds[e]-1;
-// 		n2 = edgeEnds[e+nEdges]-1;
-// 		
-// 		for(s1 = 0; s1 < nStates[n1];s1++)
-// 		{
-// 			for(s2 = 0; s2 < nStates[n2]; s2++)
-// 			{
-// 				if(edgeBel[s1+maxState*(s2+maxState*e)] > 1e-10)
-// 				{
-// 					entropy2 -= edgeBel[s1+maxState*(s2+maxState*e)]*log(edgeBel[s1+maxState*(s2+maxState*e)]);
-// 				}
-// 				energy2 -= edgeBel[s1+maxState*(s2+maxState*e)]*log(edgePot[s1+maxState*(s2+maxState*e)]);
-// 			}
-// 		}
-// 	}
-// 	logZ[0] = -energy1-energy2+entropy1+entropy2;
+	/* Compute nodeBel */
+	for (n = 0; n < nNodes; n++)
+	{
+		/* Init to nodePot */
+		for (s = 0; s < nStates[n]; s++)
+			nodeBel[n+nNodes*s] = nodePot[n+nNodes*s];
+		/* Multiply by product of incoming messages */
+		for (Vind = V[n]-1; Vind < V[n+1]-1; Vind++)
+		{
+			e = E[Vind]-1;
+			n1 = edgeEnds[e]-1;
+			n2 = edgeEnds[e+nEdges]-1;
+			if (n == n1) {
+				for(s = 0; s < nStates[n]; s++)
+					nodeBel[n+nNodes*s] *= msg_i[s+maxState*e];
+			}
+			else {
+				for(s = 0; s < nStates[n]; s++)
+					nodeBel[n+nNodes*s] *= msg_i[s+maxState*(e+nEdges)];
+			}
+		}
+		/* Normalize */
+		z = 0.0;
+		for(s = 0; s < nStates[n]; s++)
+			z += nodeBel[n+nNodes*s];
+		for(s = 0; s < nStates[n]; s++)
+			nodeBel[n+nNodes*s] /= z;
+	}
 	
+	/* Compute edgeBel */
+	for (e = 0; e < nEdges; e++)
+	{
+		n1 = edgeEnds[e]-1;
+		n2 = edgeEnds[e+nEdges]-1;
+		/* Multiply edgePot by ross-product of outgoing messages */
+		z = 0.0;
+		for (s1 = 0; s1 < nStates[n1]; s1++) {
+			for (s2 = 0; s2 < nStates[n2]; s2++) {
+				edgeBel[s1+maxState*(s2+maxState*e)] = edgePot[s1+maxState*(s2+maxState*e)]
+													 * msg_o[s1+maxState*e] * msg_o[s2+maxState*(e+nEdges)];
+				z += edgeBel[s1+maxState*(s2+maxState*e)];
+			}
+		}
+		/* Normalize */
+		for (s1 = 0; s1 < nStates[n1]; s1++) {
+			for (s2 = 0; s2 < nStates[n2]; s2++)
+				edgeBel[s1+maxState*(s2+maxState*e)] /= z;
+		}
+	}
+	
+	/* Compute Bethe Free Energy */
+	energy1 = 0;
+	energy2 = 0;
+	entropy1 = 0;
+	entropy2 = 0;
+	for (n = 0; n < nNodes; n++)
+	{
+		nNbrs = V[n+1]-V[n];
+		for (s = 0; s < nStates[n]; s++) {
+			if (nodeBel[n+nNodes*s] > 1e-10)
+				entropy1 += (nNbrs-1)*nodeBel[n+nNodes*s]*log(nodeBel[n+nNodes*s]);
+			energy1 -= nodeBel[n+nNodes*s] * log(nodePot[n+nNodes*s]);
+		}
+	}
+	for (e = 0; e < nEdges; e++)
+	{
+		n1 = edgeEnds[e]-1;
+		n2 = edgeEnds[e+nEdges]-1;
+		for (s1 = 0; s1 < nStates[n1]; s1++) {
+			for(s2 = 0; s2 < nStates[n2]; s2++) {
+				if(edgeBel[s1+maxState*(s2+maxState*e)] > 1e-10)
+					entropy2 -= edgeBel[s1+maxState*(s2+maxState*e)] * log(edgeBel[s1+maxState*(s2+maxState*e)]);
+				energy2 -= edgeBel[s1+maxState*(s2+maxState*e)] * log(edgePot[s1+maxState*(s2+maxState*e)]);
+			}
+		}
+	}
+	logZ[0] = (entropy1 + entropy2) - (energy1 + energy2);
 	
 	/* Free memory */
 	mxFree(msg_i);
@@ -318,8 +298,4 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 	mxFree(tmp_o);
 	mxFree(old_msg_i);
 	mxFree(old_msg_o);
-// 	mxFree(prodMsgs);
-// 	mxFree(oldMsgs);
-// 	mxFree(newMsgs);
-// 	mxFree(tmp);
 }

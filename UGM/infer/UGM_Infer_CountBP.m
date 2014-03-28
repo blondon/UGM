@@ -13,8 +13,18 @@ if nargin < 5
 	end
 end
 
+% Convergence tolerance
+if isfield(edgeStruct,'convTol')
+	convTol = edgeStruct.convTol;
+else
+	convTol = 1e-4;
+end
+
 if edgeStruct.useMex
-    [nodeBel,edgeBel,logZ] = UGM_Infer_CountBPC(nodePot,edgePot,nodeCount,edgeCount,edgeStruct.edgeEnds,edgeStruct.nStates,edgeStruct.V,edgeStruct.E,int32(edgeStruct.maxIter));
+    [nodeBel,edgeBel,logZ] = UGM_Infer_CountBPC(...
+		nodePot,edgePot,nodeCount,edgeCount,...
+		edgeStruct.edgeEnds,edgeStruct.nStates,edgeStruct.V,edgeStruct.E,...
+		int32(edgeStruct.maxIter),convTol);
 else
     [nodeBel, edgeBel, logZ] = Infer_CountBP(nodePot,edgePot,edgeStruct,nodeCount,edgeCount);
 end
