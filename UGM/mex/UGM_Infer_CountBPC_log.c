@@ -13,9 +13,9 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 	double *nodePot,*edgePot,*nodeCount,*edgeCount,
 			*nodeBel,*edgeBel,*logZ,
 			q1,q2,d1,d2,
-			*powEdgePot,
+			*logNodePot,*powEdgePot,
 			*msg_i,*msg_o,*tmp_i,*tmp_o,*old_msg_i,*old_msg_o,
-			z,convTol,
+			z,convTol,minVal,
 			energy1,energy2,entropy1,entropy2;
 	
 	/* Input */
@@ -53,8 +53,12 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 	edgeBel = mxGetPr(plhs[1]);
 	logZ = mxGetPr(plhs[2]);
 	
-	/* Local copy of edgePot^(1/edgeCount) */
+	/* Local copies of nodePot,edgePot */
+	logNodePot = mxCalloc(nNodes*maxState,sizeof(double));
 	powEdgePot = mxCalloc(maxState*maxState*nEdges,sizeof(double));
+	for (n = 0; n < nNodes; n++)
+		for (s = 0; s < nStates[n]; s++)
+			logNodePot[n+nNodes*s] = log(nodePot[n+nNodes*s]);
 	for (e = 0; e < nEdges; e++)
 	{
 		n1 = edgeEnds[e]-1;
@@ -72,19 +76,18 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 	old_msg_i = mxCalloc(maxState*nEdges*2,sizeof(double));
 	old_msg_o = mxCalloc(maxState*nEdges*2,sizeof(double));
 
-	/* Initialize */
+	/* Initialize messages */
 	for (e = 0; e < nEdges; e++)
 	{
 		n1 = edgeEnds[e]-1;
 		n2 = edgeEnds[e+nEdges]-1;
-		/* Init messages */
 		for (s = 0; s < nStates[n1]; s++) {
-			msg_i[s+maxState*e] = 1.0/nStates[n1];
-			msg_o[s+maxState*e] = 1.0/nStates[n1];
+			msg_i[s+maxState*e] = -log(nStates[n1]);
+			msg_o[s+maxState*e] = -log(nStates[n1]);
 		}
 		for (s = 0; s < nStates[n2]; s++) {
-			msg_i[s+maxState*(e+nEdges)] = 1.0/nStates[n2];
-			msg_o[s+maxState*(e+nEdges)] = 1.0/nStates[n2];
+			msg_i[s+maxState*(e+nEdges)] = -log(nStates[n2]);
+			msg_o[s+maxState*(e+nEdges)] = -log(nStates[n2]);
 		}
 	}
 	
@@ -99,21 +102,31 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 			
 			/* Incoming */
 			for (s1 = 0; s1 < nStates[n1]; s1++) {
-				tmp_i[s1+maxState*e] = 0.0;
+				minVal = INFINITY;
+				for (s2 = 0; s2 < nStates[n1]; s2++) {
+					if (minVal > msg_o[s2+maxState*(e+nEdges)])
+						minVal = msg_o[s2+maxState*(e+nEdges)];
+				}
+				z = 0.0;
 				for (s2 = 0; s2 < nStates[n1]; s2++)
-					tmp_i[s1+maxState*e] += powEdgePot[s1+maxState*(s2+maxState*e)]
-										  * msg_o[s2+maxState*(e+nEdges)];
+					z += powEdgePot[s1+maxState*(s2+maxState*e)] * exp(msg_o[s2+maxState*(e+nEdges)]-minVal);
+				tmp_i[s1+maxState*e] = log(z) + minVal;
 			}
 			for (s2 = 0; s2 < nStates[n1]; s2++) {
-				tmp_i[s2+maxState*(e+nEdges)] = 0.0;
+				minVal = INFINITY;
+				for (s1 = 0; s1 < nStates[n1]; s1++) {
+					if (minVal > msg_o[s1+maxState*e])
+						minVal = msg_o[s1+maxState*e];
+				}
+				z = 0.0;
 				for (s1 = 0; s1 < nStates[n1]; s1++)
-					tmp_i[s2+maxState*(e+nEdges)] += powEdgePot[s1+maxState*(s2+maxState*e)]
-												   * msg_o[s1+maxState*e];
+					z += powEdgePot[s1+maxState*(s2+maxState*e)] * exp(msg_o[s1+maxState*e]-minVal);
+				tmp_i[s2+maxState*(e+nEdges)] = log(z) + minVal;
 			}
 
 			/* Outgoing */
 			for (s = 0; s < nStates[n1]; s++)
-				tmp_o[s+maxState*e] = nodePot[n1+nNodes*s];
+				tmp_o[s+maxState*e] = logNodePot[n1+nNodes*s];
 			for(Vind = V[n1]-1; Vind < V[n1+1]-1; Vind++)
 			{
 				e2 = E[Vind] - 1;
@@ -121,16 +134,16 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 				{
 					if (n1 == edgeEnds[e2]-1) {
 						for (s = 0; s < nStates[n1]; s++)
-							tmp_o[s+maxState*e] *= msg_i[s+maxState*e2];
+							tmp_o[s+maxState*e] += msg_i[s+maxState*e2];
 					}
 					else {
 						for (s = 0; s < nStates[n1]; s++)
-							tmp_o[s+maxState*e] *= msg_i[s+maxState*(e2+nEdges)];
+							tmp_o[s+maxState*e] += msg_i[s+maxState*(e2+nEdges)];
 					}
 				}
 			}
 			for (s = 0; s < nStates[n2]; s++)
-				tmp_o[s+maxState*(e+nEdges)] = nodePot[n2+nNodes*s];
+				tmp_o[s+maxState*(e+nEdges)] = logNodePot[n2+nNodes*s];
 			for(Vind = V[n2]-1; Vind < V[n2+1]-1; Vind++)
 			{
 				e2 = E[Vind] - 1;
@@ -138,11 +151,11 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 				{
 					if (n2 == edgeEnds[e2]-1) {
 						for (s = 0; s < nStates[n2]; s++)
-							tmp_o[s+maxState*(e+nEdges)] *= msg_i[s+maxState*e2];
+							tmp_o[s+maxState*(e+nEdges)] += msg_i[s+maxState*e2];
 					}
 					else {
 						for (s = 0; s < nStates[n2]; s++)
-							tmp_o[s+maxState*(e+nEdges)] *= msg_i[s+maxState*(e2+nEdges)];
+							tmp_o[s+maxState*(e+nEdges)] += msg_i[s+maxState*(e2+nEdges)];
 					}
 				}
 			}
@@ -163,47 +176,51 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 			/* Incoming */
 			z = 0.0;
 			for (s = 0; s < nStates[n1]; s++) {
-				msg_i[s+maxState*e] = pow(tmp_i[s+maxState*e],edgeCount[e]/d1)
-									* pow(tmp_o[s+maxState*e],(q1-edgeCount[e])/d1);
-				z += msg_i[s+maxState*e];
+				msg_i[s+maxState*e] = (tmp_i[s+maxState*e] * (edgeCount[e]/d1))
+									+ (tmp_o[s+maxState*e] * ((q1-edgeCount[e])/d1));
+				z += exp(msg_i[s+maxState*e]);
 			}
+			z = log(z);
 			for (s = 0; s < nStates[n1]; s++)
-				msg_i[s+maxState*e] /= z;
+				msg_i[s+maxState*e] -= z;
 			z = 0.0;
 			for (s = 0; s < nStates[n2]; s++) {
-				msg_i[s+maxState*(e+nEdges)] = pow(tmp_i[s+maxState*(e+nEdges)],edgeCount[e]/d2)
-											 * pow(tmp_o[s+maxState*(e+nEdges)],(q2-edgeCount[e])/d2);
-				z += msg_i[s+maxState*(e+nEdges)];
+				msg_i[s+maxState*(e+nEdges)] = (tmp_i[s+maxState*(e+nEdges)] * (edgeCount[e]/d2))
+											 + (tmp_o[s+maxState*(e+nEdges)] * ((q2-edgeCount[e])/d2));
+				z += exp(msg_i[s+maxState*(e+nEdges)]);
 			}
+			z = log(z);
 			for (s = 0; s < nStates[n2]; s++)
-				msg_i[s+maxState*(e+nEdges)] /= z;
+				msg_i[s+maxState*(e+nEdges)] -= z;
 			
 			/* Outgoing */
 			z = 0.0;
 			for (s = 0; s < nStates[n1]; s++) {
-				msg_o[s+maxState*e] = pow(tmp_i[s+maxState*e],(q1-1)/d1)
-									* pow(tmp_o[s+maxState*e],1/d1);
-				z += msg_o[s+maxState*e];
+				msg_o[s+maxState*e] = (tmp_i[s+maxState*e] * ((q1-1)/d1))
+									+ (tmp_o[s+maxState*e] * (1/d1));
+				z += exp(msg_o[s+maxState*e]);
 			}
+			z = log(z);
 			for (s = 0; s < nStates[n1]; s++)
-				msg_o[s+maxState*e] /= z;
+				msg_o[s+maxState*e] -= z;
 			z = 0.0;
 			for (s = 0; s < nStates[n2]; s++) {
-				msg_o[s+maxState*(e+nEdges)] = pow(tmp_i[s+maxState*(e+nEdges)],(q2-1)/d2)
-											 * pow(tmp_o[s+maxState*(e+nEdges)],1/d2);
-				z += msg_o[s+maxState*(e+nEdges)];
+				msg_o[s+maxState*(e+nEdges)] = (tmp_i[s+maxState*(e+nEdges)] * ((q2-1)/d2))
+											 + (tmp_o[s+maxState*(e+nEdges)] * (1/d2));
+				z += exp(msg_o[s+maxState*(e+nEdges)]);
 			}
+			z = log(z);
 			for (s = 0; s < nStates[n2]; s++)
-				msg_o[s+maxState*(e+nEdges)] /= z;
+				msg_o[s+maxState*(e+nEdges)] -= z;
 		}
 	
 		/* Check convergence */
 		notConverged = 0;
 		for (s = 0; s < maxState; s++) {
 			for (e = 0; e < nEdges*2; e++) {
-				if (absDif(msg_i[s+maxState*e],old_msg_i[s+maxState*e]) >= convTol)
+				if (absDif(exp(msg_i[s+maxState*e]),exp(old_msg_i[s+maxState*e])) >= convTol)
 					notConverged++;
-				if (absDif(msg_o[s+maxState*e],old_msg_o[s+maxState*e]) >= convTol)
+				if (absDif(exp(msg_o[s+maxState*e]),exp(old_msg_o[s+maxState*e])) >= convTol)
 					notConverged++;
 				old_msg_i[s+maxState*e] = msg_i[s+maxState*e];
 				old_msg_o[s+maxState*e] = msg_o[s+maxState*e];
@@ -222,9 +239,9 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 	/* Compute nodeBel */
 	for (n = 0; n < nNodes; n++)
 	{
-		/* Init to nodePot */
+		/* Init to logNodePot */
 		for (s = 0; s < nStates[n]; s++)
-			nodeBel[n+nNodes*s] = nodePot[n+nNodes*s];
+			nodeBel[n+nNodes*s] = logNodePot[n+nNodes*s];
 		/* Multiply by product of incoming messages */
 		for (Vind = V[n]-1; Vind < V[n+1]-1; Vind++)
 		{
@@ -233,17 +250,19 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 			n2 = edgeEnds[e+nEdges]-1;
 			if (n == n1) {
 				for(s = 0; s < nStates[n]; s++)
-					nodeBel[n+nNodes*s] *= msg_i[s+maxState*e];
+					nodeBel[n+nNodes*s] += msg_i[s+maxState*e];
 			}
 			else {
 				for(s = 0; s < nStates[n]; s++)
-					nodeBel[n+nNodes*s] *= msg_i[s+maxState*(e+nEdges)];
+					nodeBel[n+nNodes*s] += msg_i[s+maxState*(e+nEdges)];
 			}
 		}
-		/* Normalize */
+		/* Exponentiate and normalize */
 		z = 0.0;
-		for(s = 0; s < nStates[n]; s++)
+		for(s = 0; s < nStates[n]; s++) {
+			nodeBel[n+nNodes*s] = exp(nodeBel[n+nNodes*s]);
 			z += nodeBel[n+nNodes*s];
+		}
 		for(s = 0; s < nStates[n]; s++)
 			nodeBel[n+nNodes*s] /= z;
 	}
@@ -258,7 +277,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 		for (s1 = 0; s1 < nStates[n1]; s1++) {
 			for (s2 = 0; s2 < nStates[n2]; s2++) {
 				edgeBel[s1+maxState*(s2+maxState*e)] = edgePot[s1+maxState*(s2+maxState*e)]
-													 * msg_o[s1+maxState*e] * msg_o[s2+maxState*(e+nEdges)];
+													 * exp(msg_o[s1+maxState*e] + msg_o[s2+maxState*(e+nEdges)]);
 				z += edgeBel[s1+maxState*(s2+maxState*e)];
 			}
 		}
@@ -280,7 +299,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 		for (s = 0; s < nStates[n]; s++) {
 			if (nodeBel[n+nNodes*s] > 1e-10)
 				entropy1 += (nNbrs-1)*nodeBel[n+nNodes*s]*log(nodeBel[n+nNodes*s]);
-			energy1 -= nodeBel[n+nNodes*s] * log(nodePot[n+nNodes*s]);
+			energy1 -= nodeBel[n+nNodes*s] * logNodePot[n+nNodes*s];
 		}
 	}
 	for (e = 0; e < nEdges; e++)
@@ -298,6 +317,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 	logZ[0] = (entropy1 + entropy2) - (energy1 + energy2);
 	
 	/* Free memory */
+	mxFree(logNodePot);
 	mxFree(powEdgePot);
 	mxFree(msg_i);
 	mxFree(msg_o);

@@ -1,4 +1,4 @@
-function [msg_i,msg_o] = UGM_CountBP(nodePot,edgePot,nodeCount,edgeCount,edgeStruct,maximize)
+function [msg_i,msg_o] = UGM_CountBP_log(nodePot,edgePot,nodeCount,edgeCount,edgeStruct,maximize)
 
 [nNodes,maxState] = size(nodePot);
 nEdges = size(edgePot,3);
@@ -13,59 +13,62 @@ else
 end
 
 % Initialize
-msg_i = zeros(maxState,nEdges*2);
-msg_o = zeros(maxState,nEdges*2);
-old_msg_i = zeros(maxState,nEdges*2);
-old_msg_o = zeros(maxState,nEdges*2);
+lnodePot = log(nodePot);
+lmsg_i = zeros(maxState,nEdges*2);
+lmsg_o = zeros(maxState,nEdges*2);
+lold_msg_i = zeros(maxState,nEdges*2);
+lold_msg_o = zeros(maxState,nEdges*2);
 for e = 1:nEdges
 	n1 = edgeEnds(e,1);
 	n2 = edgeEnds(e,2);
-	msg_i(1:nStates(n1),e) = 1/nStates(n1); % Message e -> n1
-	msg_i(1:nStates(n2),e+nEdges) = 1/nStates(n2); % Message e -> n2
-	msg_o(1:nStates(n1),e) = 1/nStates(n1); % Message n1 -> e
-	msg_o(1:nStates(n2),e+nEdges) = 1/nStates(n2); % Message n2 -> e
+	lmsg_i(1:nStates(n1),e) = -log(nStates(n1)); % Message e -> n1
+	lmsg_i(1:nStates(n2),e+nEdges) = -log(nStates(n2)); % Message e -> n2
+	lmsg_o(1:nStates(n1),e) = -log(nStates(n1)); % Message n1 -> e
+	lmsg_o(1:nStates(n2),e+nEdges) = -log(nStates(n2)); % Message n2 -> e
 	edgePot(1:nStates(n1),1:nStates(n2),e) = edgePot(1:nStates(n1),1:nStates(n2),e).^(1/edgeCount(e));
 end
 
 % Main loop
 for i = 1:edgeStruct.maxIter
 	% Temp messages
-	tmp_msg_i = zeros(maxState,nNodes);
-	tmp_msg_o = zeros(maxState,nEdges*2);
+	ltmp_i = zeros(maxState,nNodes);
+	ltmp_o = zeros(maxState,nEdges*2);
 	for e = 1:nEdges
 		n1 = edgeEnds(e,1);
 		n2 = edgeEnds(e,2);
 		
 		% Incoming
 		pot = edgePot(1:nStates(n1),1:nStates(n2),e);
-		tmp_msg_i(1:nStates(n1),e) = pot * msg_o(1:nStates(n2),e+nEdges);
-		tmp_msg_i(1:nStates(n2),e+nEdges) = pot' * msg_o(1:nStates(n1),e);
+		z = min(lmsg_o(1:nStates(n2),e+nEdges));
+		ltmp_i(1:nStates(n1),e) = log(pot * exp(lmsg_o(1:nStates(n2),e+nEdges)-z)) + z;
+		z = min(lmsg_o(1:nStates(n1),e));
+		ltmp_i(1:nStates(n2),e+nEdges) = log(pot' * exp(lmsg_o(1:nStates(n1),e)-z)) + z;
 		
 		% Outgoing
 		%  n1
-		tmp = nodePot(n1,1:nStates(n1))';
+		tmp = lnodePot(n1,1:nStates(n1))';
 		for e1 = UGM_getEdges(n1,edgeStruct)
 			if e1 ~= e
 				if n1 == edgeEnds(e1,1)
-					tmp = tmp .* msg_i(1:nStates(n1),e1);
+					tmp = tmp + lmsg_i(1:nStates(n1),e1);
 				else
-					tmp = tmp .* msg_i(1:nStates(n1),e1+nEdges);
+					tmp = tmp + lmsg_i(1:nStates(n1),e1+nEdges);
 				end
 			end
 		end
-		tmp_msg_o(1:nStates(n1),e) = tmp;
+		ltmp_o(1:nStates(n1),e) = tmp;
 		%  n2
-		tmp = nodePot(n2,1:nStates(n2))';
+		tmp = lnodePot(n2,1:nStates(n2))';
 		for e2 = UGM_getEdges(n2,edgeStruct)
 			if e2 ~= e
 				if n2 == edgeEnds(e2,1)
-					tmp = tmp .* msg_i(1:nStates(n2),e2);
+					tmp = tmp + lmsg_i(1:nStates(n2),e2);
 				else
-					tmp = tmp .* msg_i(1:nStates(n2),e2+nEdges);
+					tmp = tmp + lmsg_i(1:nStates(n2),e2+nEdges);
 				end
 			end
 		end
-		tmp_msg_o(1:nStates(n2),e+nEdges) = tmp;
+		ltmp_o(1:nStates(n2),e+nEdges) = tmp;
 	end
 	
 	% New messages
@@ -81,34 +84,50 @@ for i = 1:edgeStruct.maxIter
 		
 		% Incoming
 		%  n1
-		newm = tmp_msg_i(1:nStates(n1),e).^(edgeCount(e)/d1) .* ...
-			   tmp_msg_o(1:nStates(n1),e).^((q1-edgeCount(e))/d1);
-		msg_i(1:nStates(n1),e) = newm ./ sum(newm);
+		newm = ltmp_i(1:nStates(n1),e).*(edgeCount(e)/d1) + ...
+			   ltmp_o(1:nStates(n1),e).*((q1-edgeCount(e))/d1);
+		lmsg_i(1:nStates(n1),e) = newm - log(sum(exp(newm)));
 		%  n2
-		newm = tmp_msg_i(1:nStates(n2),e+nEdges).^(edgeCount(e)/d2) .* ...
-			   tmp_msg_o(1:nStates(n2),e+nEdges).^((q2-edgeCount(e))/d2);
-		msg_i(1:nStates(n2),e+nEdges) = newm ./ sum(newm);
+		newm = ltmp_i(1:nStates(n2),e+nEdges).*(edgeCount(e)/d2) + ...
+			   ltmp_o(1:nStates(n2),e+nEdges).*((q2-edgeCount(e))/d2);
+		lmsg_i(1:nStates(n2),e+nEdges) = newm - log(sum(exp(newm)));
 
 		% Outgoing
-		newm = tmp_msg_i(1:nStates(n1),e).^((q1-1)/d1) .* ...
-			   tmp_msg_o(1:nStates(n1),e).^(1/d1);
-		msg_o(1:nStates(n1),e) = newm ./ sum(newm);
-		newm = tmp_msg_i(1:nStates(n2),e+nEdges).^((q2-1)/d2) .* ...
-			   tmp_msg_o(1:nStates(n2),e+nEdges).^(1/d2);
-		msg_o(1:nStates(n2),e+nEdges) = newm ./ sum(newm);
+		newm = ltmp_i(1:nStates(n1),e).*((q1-1)/d1) + ...
+			   ltmp_o(1:nStates(n1),e).*(1/d1);
+		lmsg_o(1:nStates(n1),e) = newm - log(sum(exp(newm)));
+		newm = ltmp_i(1:nStates(n2),e+nEdges).*((q2-1)/d2) + ...
+			   ltmp_o(1:nStates(n2),e+nEdges).*(1/d2);
+		lmsg_o(1:nStates(n2),e+nEdges) = newm - log(sum(exp(newm)));
 	end
+% 	
+% 	% Check for NaNs
+% 	if any(isnan(lmsg_i(:))) || any(isnan(lmsg_o(:)))
+% 		break
+% 	end
 	
 	% Check convergence
-	if all(abs(msg_i(:)-old_msg_i(:)) < convTol) ...
-	   && all(abs(msg_o(:)-old_msg_o(:)) < convTol)
-		break;
+	if all(abs(exp(lmsg_i(:))-exp(lold_msg_i(:))) < convTol) ...
+	   && all(abs(exp(lmsg_o(:))-exp(lold_msg_o(:))) < convTol)
+		break
 	end
 	
 	% Swap old/new outgoing messages
-	old_msg_i = msg_i;
-	old_msg_o = msg_o;
+	lold_msg_i = lmsg_i;
+	lold_msg_o = lmsg_o;
 end
 if i == edgeStruct.maxIter
 	fprintf('CountBP did not converge after %d iterations\n',edgeStruct.maxIter);
 end
-% fprintf('CountBP stopped after %d iterations\n',i);
+fprintf('CountBP stopped after %d iterations\n',i);
+
+msg_i = exp(lmsg_i);
+msg_o = exp(lmsg_o);
+% for e = 1:nEdges
+% 	n1 = edgeEnds(e,1);
+% 	n2 = edgeEnds(e,2);
+% 	msg_i(1:nStates(n1),e) = msg_i(1:nStates(n1),e) ./ sum(msg_i(1:nStates(n1),e));
+% 	msg_i(1:nStates(n2),e+nEdges) = msg_i(1:nStates(n2),e+nEdges) ./ sum(msg_i(1:nStates(n2),e+nEdges));
+% 	msg_o(1:nStates(n1),e) = msg_o(1:nStates(n1),e) ./ sum(msg_o(1:nStates(n1),e));
+% 	msg_o(1:nStates(n2),e+nEdges) = msg_o(1:nStates(n2),e+nEdges) ./ sum(msg_o(1:nStates(n2),e+nEdges));
+% end

@@ -31,6 +31,7 @@ end
 
 end
 
+%% Non-mex version
 function [nodeBel,edgeBel,logZ] = Infer_CountBP(nodePot,edgePot,edgeStruct,nodeCount,edgeCount)
 
 [nNodes,maxState] = size(nodePot);
