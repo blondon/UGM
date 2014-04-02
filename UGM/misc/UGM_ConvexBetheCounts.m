@@ -24,8 +24,20 @@ tolConvex = 1e-8;
 [nodeCount_b,edgeCount_b] = UGM_BetheCounts(edgeStruct);
 betheCount = [nodeCount_b ; edgeCount_b];
 
+% % TEMP: for TRBP testing
+% nodeCount_b = ones(edgeStruct.nNodes,1);
+% edgeCount_b = edgeStruct.edgeDist;
+% for e = 1:edgeStruct.nEdges
+% 	n1 = edgeStruct.edgeEnds(e,1);
+% 	n2 = edgeStruct.edgeEnds(e,2);
+% 	nodeCount_b(n1) = nodeCount_b(n1) - edgeStruct.edgeDist(e);
+% 	nodeCount_b(n2) = nodeCount_b(n2) - edgeStruct.edgeDist(e);
+% end
+% betheCount = [nodeCount_b ; edgeCount_b];
+
+
 % Try non-slack QP
-[nodeCount,edgeCount,auxCount,fval,exitflag] = solveQP(edgeStruct,kappa,betheCount,tolCon);
+[nodeCount,edgeCount,auxCount,~,exitflag] = solveQP(edgeStruct,kappa,betheCount,tolCon);
 slack = [];
 
 % Check feasibility
@@ -33,14 +45,14 @@ if exitflag == -2
 	fprintf('QP is infeasible. Trying slackened version with minKappa=%f ...\n',minKappa);
 	
 	% Try slackened QP
-	[nodeCount,edgeCount,auxCount,slack,fval,exitflag] = solveSlackQP(edgeStruct,kappa,minKappa,betheCount,tolCon);
+	[nodeCount,edgeCount,auxCount,slack,~,exitflag] = solveSlackQP(edgeStruct,kappa,minKappa,betheCount,tolCon);
 	if exitflag == -2
 		fprintf('Slackened QP is infeasible. Try a different value for kappa,minKappa.\n');
 	end
 end
 
 % Objective value
-fprintf('Final objective value: %f\n',fval);
+fprintf('Fit: %f\n', norm([nodeCount;edgeCount]-betheCount,2)^2);
 
 % Verify
 verifySolution(edgeStruct,kappa,nodeCount,edgeCount,auxCount,slack,tolValid);
@@ -268,7 +280,7 @@ if ~isempty(slack)
 end
 fprintf('Solution is (%f-strongly) convex\n',convexity);
 
-% Convexity constraints
+% % Convexity constraints
 % satisfied = 1;
 % maxViolation = 0;
 % for n = 1:nNodes
