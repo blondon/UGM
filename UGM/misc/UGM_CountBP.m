@@ -97,10 +97,11 @@ for i = 1:edgeStruct.maxIter
 			   tmp_o(1:nStates(n2),e+nEdges).^(1/d2);
 		msg_o(1:nStates(n2),e+nEdges) = newm ./ sum(newm);
 	end
-% 	
+	
 % 	% Check for NaNs
+% 	[min(msg_i(:)) min(msg_o(:))]
 % 	if any(isnan(msg_i(:))) || any(isnan(msg_o(:)))
-% 		break
+% 		error('Found NaN values\n')
 % 	end
 	
 	% Check convergence
