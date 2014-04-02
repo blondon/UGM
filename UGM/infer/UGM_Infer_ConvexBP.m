@@ -1,4 +1,4 @@
-function [nodeBel,edgeBel,logZ] = UGM_Infer_CBP(convexity,nodePot,edgePot,edgeStruct,inferFunc,varargin)
+function [nodeBel,edgeBel,logZ] = UGM_Infer_ConvexBP(convexity,nodePot,edgePot,edgeStruct,inferFunc,varargin)
 %
 % Convexified BP inference.
 %
@@ -9,9 +9,9 @@ function [nodeBel,edgeBel,logZ] = UGM_Infer_CBP(convexity,nodePot,edgePot,edgeSt
 % edgeStruct : edge struct
 % inferFunc : inference function
 
-assert(nargin >= 5, 'USAGE: UGM_Infer_CBP(convexity,nodePot,edgePot,edgeStruct,inferFunc)')
+assert(nargin >= 5, 'USAGE: UGM_Infer_ConvexBP(convexity,nodePot,edgePot,edgeStruct,inferFunc)')
 
-assert(convexity > 0, 'In UGM_Infer_CBP: convexity must be strictly positive.')
+assert(convexity > 0, 'In UGM_Infer_ConvexBP: convexity must be strictly positive.')
 
 if nargout == 1
 	[nodeBel] = inferFunc(nodePot.^(1/convexity),edgePot.^(1/convexity),edgeStruct,varargin{:});
