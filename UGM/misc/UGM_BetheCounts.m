@@ -1,4 +1,4 @@
-function [nodeCount,edgeCount] = UGM_betheCountingNumbers(edgeStruct)
+function [nodeCount,edgeCount] = UGM_BetheCounts(edgeStruct)
 %
 % Computes the counting numbers for the Bethe approximation.
 %
