@@ -1,16 +1,9 @@
-function [msg_i,msg_o] = UGM_CountBP(nodePot,edgePot,nodeCount,edgeCount,edgeStruct,maximize)
+function [msg_i,msg_o] = UGM_CountBP(nodePot,edgePot,nodeCount,edgeCount,edgeStruct,momentum,convTol)
 
 [nNodes,maxState] = size(nodePot);
 nEdges = size(edgePot,3);
 edgeEnds = edgeStruct.edgeEnds;
 nStates = double(edgeStruct.nStates);
-
-% Convergence tolerance
-if isfield(edgeStruct,'convTol')
-	convTol = edgeStruct.convTol;
-else
-	convTol = 1e-4;
-end
 
 % Initialize
 msg_i = zeros(maxState,nEdges*2);
@@ -83,23 +76,27 @@ for i = 1:edgeStruct.maxIter
 		%  n1
 		newm = tmp_i(1:nStates(n1),e).^(edgeCount(e)/d1) .* ...
 			   tmp_o(1:nStates(n1),e).^((q1-edgeCount(e))/d1);
-		msg_i(1:nStates(n1),e) = newm ./ sum(newm);
+		newm = newm ./ sum(newm);
+		msg_i(1:nStates(n1),e) = (1-momentum)*msg_i(1:nStates(n1),e) + momentum*newm;
 		%  n2
 		newm = tmp_i(1:nStates(n2),e+nEdges).^(edgeCount(e)/d2) .* ...
 			   tmp_o(1:nStates(n2),e+nEdges).^((q2-edgeCount(e))/d2);
-		msg_i(1:nStates(n2),e+nEdges) = newm ./ sum(newm);
+		newm = newm ./ sum(newm);
+		msg_i(1:nStates(n2),e+nEdges) = (1-momentum)*msg_i(1:nStates(n2),e+nEdges) + momentum*newm;
 
 		% Outgoing
 		newm = tmp_i(1:nStates(n1),e).^((q1-1)/d1) .* ...
 			   tmp_o(1:nStates(n1),e).^(1/d1);
-		msg_o(1:nStates(n1),e) = newm ./ sum(newm);
+		newm = newm ./ sum(newm);
+		msg_o(1:nStates(n1),e) = (1-momentum)*msg_o(1:nStates(n1),e) + momentum*newm;
 		newm = tmp_i(1:nStates(n2),e+nEdges).^((q2-1)/d2) .* ...
 			   tmp_o(1:nStates(n2),e+nEdges).^(1/d2);
-		msg_o(1:nStates(n2),e+nEdges) = newm ./ sum(newm);
+		newm = newm ./ sum(newm);
+		msg_o(1:nStates(n2),e+nEdges) = (1-momentum)*msg_o(1:nStates(n2),e+nEdges) + momentum*newm;
 	end
 	
 % 	% Check for NaNs
-% 	[min(msg_i(:)) min(msg_o(:))]
+% 	[min(msg_i(:)) max(msg_i(:)) min(msg_o(:)) max(msg_o(:))]
 % 	if any(isnan(msg_i(:))) || any(isnan(msg_o(:)))
 % 		error('Found NaN values\n')
 % 	end

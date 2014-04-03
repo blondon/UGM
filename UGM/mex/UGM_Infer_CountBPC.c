@@ -5,7 +5,7 @@
 void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 {
 	/* Variables */
-	int n,s,e,e2,n1,n2,neigh,Vind,Vind2,s1,s2,
+	int n,s,e,e2,n1,n2,neigh,Vind,Vind2,s1,s2,idx,
 		nNodes,nEdges,maxState,dims[3],
 		iter,maxIter,nNbrs,notConverged,
 		*edgeEnds,*nStates,*V,*E,*y;
@@ -15,7 +15,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 			q1,q2,d1,d2,
 			*powEdgePot,
 			*msg_i,*msg_o,*tmp_i,*tmp_o,*old_msg_i,*old_msg_o,
-			z,convTol,
+			z,momentum,convTol,
 			energy1,energy2,entropy1,entropy2;
 	
 	/* Input */
@@ -28,7 +28,8 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 	V = (int*)mxGetPr(prhs[6]);
 	E = (int*)mxGetPr(prhs[7]);
 	maxIter = ((int*)mxGetPr(prhs[8]))[0];
-	convTol = ((double*)mxGetPr(prhs[9]))[0];
+	momentum = ((double*)mxGetPr(prhs[9]))[0];
+	convTol = ((double*)mxGetPr(prhs[10]))[0];
 	
 	if (!mxIsClass(prhs[4],"int32")
 	||!mxIsClass(prhs[5],"int32")
@@ -163,50 +164,69 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 			/* Incoming */
 			z = 0.0;
 			for (s = 0; s < nStates[n1]; s++) {
-				msg_i[s+maxState*e] = pow(tmp_i[s+maxState*e],edgeCount[e]/d1)
-									* pow(tmp_o[s+maxState*e],(q1-edgeCount[e])/d1);
-				z += msg_i[s+maxState*e];
+				idx = s+maxState*e;
+				msg_i[idx] = pow(tmp_i[idx], edgeCount[e]/d1)
+						   * pow(tmp_o[idx], (q1-edgeCount[e])/d1);
+				z += msg_i[idx];
 			}
-			for (s = 0; s < nStates[n1]; s++)
-				msg_i[s+maxState*e] /= z;
+			for (s = 0; s < nStates[n1]; s++) {
+				idx = s+maxState*e;
+				msg_i[idx] = (1-momentum) * old_msg_i[idx]
+						   + momentum * (msg_i[idx] / z);
+			}
+			
 			z = 0.0;
 			for (s = 0; s < nStates[n2]; s++) {
-				msg_i[s+maxState*(e+nEdges)] = pow(tmp_i[s+maxState*(e+nEdges)],edgeCount[e]/d2)
-											 * pow(tmp_o[s+maxState*(e+nEdges)],(q2-edgeCount[e])/d2);
-				z += msg_i[s+maxState*(e+nEdges)];
+				idx = s+maxState*(e+nEdges);
+				msg_i[idx] = pow(tmp_i[idx], edgeCount[e]/d2)
+						   * pow(tmp_o[idx], (q2-edgeCount[e])/d2);
+				z += msg_i[idx];
 			}
-			for (s = 0; s < nStates[n2]; s++)
-				msg_i[s+maxState*(e+nEdges)] /= z;
+			for (s = 0; s < nStates[n2]; s++) {
+				idx = s+maxState*(e+nEdges);
+				msg_i[idx] = (1-momentum) * old_msg_i[idx]
+						   + momentum * (msg_i[idx] / z);
+			}
 			
 			/* Outgoing */
 			z = 0.0;
 			for (s = 0; s < nStates[n1]; s++) {
-				msg_o[s+maxState*e] = pow(tmp_i[s+maxState*e],(q1-1)/d1)
-									* pow(tmp_o[s+maxState*e],1/d1);
-				z += msg_o[s+maxState*e];
+				idx = s+maxState*e;
+				msg_o[idx] = pow(tmp_i[idx], (q1-1)/d1)
+						   * pow(tmp_o[idx], 1/d1);
+				z += msg_o[idx];
 			}
-			for (s = 0; s < nStates[n1]; s++)
-				msg_o[s+maxState*e] /= z;
+			for (s = 0; s < nStates[n1]; s++) {
+				idx = s+maxState*e;
+				msg_o[idx] = (1-momentum) * old_msg_o[idx]
+						   + momentum * (msg_o[idx] / z);
+			}
+			
 			z = 0.0;
 			for (s = 0; s < nStates[n2]; s++) {
-				msg_o[s+maxState*(e+nEdges)] = pow(tmp_i[s+maxState*(e+nEdges)],(q2-1)/d2)
-											 * pow(tmp_o[s+maxState*(e+nEdges)],1/d2);
-				z += msg_o[s+maxState*(e+nEdges)];
+				idx = s+maxState*(e+nEdges);
+				msg_o[idx] = pow(tmp_i[idx], (q2-1)/d2)
+						   * pow(tmp_o[idx], 1/d2);
+				z += msg_o[idx];
 			}
-			for (s = 0; s < nStates[n2]; s++)
-				msg_o[s+maxState*(e+nEdges)] /= z;
+			for (s = 0; s < nStates[n2]; s++) {
+				idx = s+maxState*(e+nEdges);
+				msg_o[idx] = (1-momentum) * old_msg_o[idx]
+						   + momentum * (msg_o[idx] / z);
+			}
 		}
 	
 		/* Check convergence */
 		notConverged = 0;
 		for (s = 0; s < maxState; s++) {
 			for (e = 0; e < nEdges*2; e++) {
-				if (absDif(msg_i[s+maxState*e],old_msg_i[s+maxState*e]) >= convTol)
+				idx = s+maxState*e;
+				if (absDif(msg_i[idx],old_msg_i[idx]) >= convTol)
 					notConverged++;
-				if (absDif(msg_o[s+maxState*e],old_msg_o[s+maxState*e]) >= convTol)
+				if (absDif(msg_o[idx],old_msg_o[idx]) >= convTol)
 					notConverged++;
-				old_msg_i[s+maxState*e] = msg_i[s+maxState*e];
-				old_msg_o[s+maxState*e] = msg_o[s+maxState*e];
+				old_msg_i[idx] = msg_i[idx];
+				old_msg_o[idx] = msg_o[idx];
 			}
 		}
 		if (notConverged == 0) {

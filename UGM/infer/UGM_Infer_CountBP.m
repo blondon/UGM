@@ -20,19 +20,27 @@ else
 	convTol = 1e-4;
 end
 
+% Momentum, for damping
+if isfield(edgeStruct,'momentum')
+	momentum = edgeStruct.momentum;
+else
+	momentum = .1;
+end
+
 if edgeStruct.useMex
     [nodeBel,edgeBel,logZ] = UGM_Infer_CountBPC(...
 		nodePot,edgePot,nodeCount,edgeCount,...
 		edgeStruct.edgeEnds,edgeStruct.nStates,edgeStruct.V,edgeStruct.E,...
-		int32(edgeStruct.maxIter),convTol);
+		int32(edgeStruct.maxIter),momentum,convTol);
 else
-    [nodeBel, edgeBel, logZ] = Infer_CountBP(nodePot,edgePot,edgeStruct,nodeCount,edgeCount);
+    [nodeBel, edgeBel, logZ] = Infer_CountBP(nodePot,edgePot,edgeStruct,...
+		nodeCount,edgeCount,momentum,convTol);
 end
 
 end
 
 %% Non-mex version
-function [nodeBel,edgeBel,logZ] = Infer_CountBP(nodePot,edgePot,edgeStruct,nodeCount,edgeCount)
+function [nodeBel,edgeBel,logZ] = Infer_CountBP(nodePot,edgePot,edgeStruct,nodeCount,edgeCount,momentum,convTol)
 
 [nNodes,maxState] = size(nodePot);
 nEdges = size(edgePot,3);
@@ -52,8 +60,7 @@ maxStates = max(nStates);
 % 	nodeCount(n2) = nodeCount(n2) - 1;
 % end
 
-maximize = 0;
-[msg_i,msg_o] = UGM_CountBP(nodePot,edgePot,nodeCount,edgeCount,edgeStruct,maximize);
+[msg_i,msg_o] = UGM_CountBP(nodePot,edgePot,nodeCount,edgeCount,edgeStruct,momentum,convTol);
 
 
 % Compute nodeBel

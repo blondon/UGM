@@ -39,9 +39,9 @@ for i = 1:edgeStruct.maxIter
 		
 		% Incoming
 		pot = edgePot(1:nStates(n1),1:nStates(n2),e);
-		z = min(lmsg_o(1:nStates(n2),e+nEdges));
+		z = max(lmsg_o(1:nStates(n2),e+nEdges));
 		ltmp_i(1:nStates(n1),e) = log(pot * exp(lmsg_o(1:nStates(n2),e+nEdges)-z)) + z;
-		z = min(lmsg_o(1:nStates(n1),e));
+		z = max(lmsg_o(1:nStates(n1),e));
 		ltmp_i(1:nStates(n2),e+nEdges) = log(pot' * exp(lmsg_o(1:nStates(n1),e)-z)) + z;
 		
 		% Outgoing
@@ -86,19 +86,23 @@ for i = 1:edgeStruct.maxIter
 		%  n1
 		newm = ltmp_i(1:nStates(n1),e).*(edgeCount(e)/d1) + ...
 			   ltmp_o(1:nStates(n1),e).*((q1-edgeCount(e))/d1);
-		lmsg_i(1:nStates(n1),e) = newm - log(sum(exp(newm)));
+		z = max(newm);
+		lmsg_i(1:nStates(n1),e) = newm - log(sum(exp(newm-z))) + z;
 		%  n2
 		newm = ltmp_i(1:nStates(n2),e+nEdges).*(edgeCount(e)/d2) + ...
 			   ltmp_o(1:nStates(n2),e+nEdges).*((q2-edgeCount(e))/d2);
-		lmsg_i(1:nStates(n2),e+nEdges) = newm - log(sum(exp(newm)));
+		z = max(newm);
+		lmsg_i(1:nStates(n2),e+nEdges) = newm - log(sum(exp(newm-z))) + z;
 
 		% Outgoing
 		newm = ltmp_i(1:nStates(n1),e).*((q1-1)/d1) + ...
 			   ltmp_o(1:nStates(n1),e).*(1/d1);
-		lmsg_o(1:nStates(n1),e) = newm - log(sum(exp(newm)));
+		z = max(newm);
+		lmsg_o(1:nStates(n1),e) = newm - log(sum(exp(newm-z))) + z;
 		newm = ltmp_i(1:nStates(n2),e+nEdges).*((q2-1)/d2) + ...
 			   ltmp_o(1:nStates(n2),e+nEdges).*(1/d2);
-		lmsg_o(1:nStates(n2),e+nEdges) = newm - log(sum(exp(newm)));
+		z = max(newm);
+		lmsg_o(1:nStates(n2),e+nEdges) = newm - log(sum(exp(newm-z))) + z;
 	end
 % 	
 % 	% Check for NaNs
