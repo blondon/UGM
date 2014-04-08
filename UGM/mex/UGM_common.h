@@ -23,4 +23,12 @@ double absDif(double a, double b)
      }
  }
  
+double zeroIfNaN(double x)
+{
+	if (mxIsNaN(x) || mxIsInf(x))
+	{
+		return 0.0;
+	}
+	return x;
+}
  

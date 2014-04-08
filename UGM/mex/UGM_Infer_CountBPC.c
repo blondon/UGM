@@ -165,54 +165,77 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 			z = 0.0;
 			for (s = 0; s < nStates[n1]; s++) {
 				idx = s+maxState*e;
-				msg_i[idx] = pow(tmp_i[idx], edgeCount[e]/d1)
-						   * pow(tmp_o[idx], (q1-edgeCount[e])/d1);
+				msg_i[idx] = zeroIfNaN(
+								pow(tmp_i[idx], edgeCount[e]/d1)
+							  * pow(tmp_o[idx], (q1-edgeCount[e])/d1)
+							 );
 				z += msg_i[idx];
 			}
-			for (s = 0; s < nStates[n1]; s++) {
-				idx = s+maxState*e;
-				msg_i[idx] = (1-momentum) * old_msg_i[idx]
-						   + momentum * (msg_i[idx] / z);
+			if (z != 0.0) /* Normalize */
+			{
+				for (s = 0; s < nStates[n1]; s++)
+					msg_i[s+maxState*e] = msg_i[s+maxState*e] / z;
 			}
 			
 			z = 0.0;
 			for (s = 0; s < nStates[n2]; s++) {
 				idx = s+maxState*(e+nEdges);
-				msg_i[idx] = pow(tmp_i[idx], edgeCount[e]/d2)
-						   * pow(tmp_o[idx], (q2-edgeCount[e])/d2);
+				msg_i[idx] = zeroIfNaN(
+								pow(tmp_i[idx], edgeCount[e]/d2)
+							  * pow(tmp_o[idx], (q2-edgeCount[e])/d2)
+							 );
 				z += msg_i[idx];
 			}
-			for (s = 0; s < nStates[n2]; s++) {
-				idx = s+maxState*(e+nEdges);
-				msg_i[idx] = (1-momentum) * old_msg_i[idx]
-						   + momentum * (msg_i[idx] / z);
+			if (z != 0.0) /* Normalize */
+			{
+				for (s = 0; s < nStates[n2]; s++)
+					msg_i[s+maxState*(e+nEdges)] = msg_i[s+maxState*(e+nEdges)] / z;
 			}
 			
 			/* Outgoing */
 			z = 0.0;
 			for (s = 0; s < nStates[n1]; s++) {
 				idx = s+maxState*e;
-				msg_o[idx] = pow(tmp_i[idx], (q1-1)/d1)
-						   * pow(tmp_o[idx], 1/d1);
+				msg_o[idx] = zeroIfNaN(
+								pow(tmp_i[idx], (q1-1)/d1)
+							  * pow(tmp_o[idx], 1/d1)
+							 );
 				z += msg_o[idx];
 			}
-			for (s = 0; s < nStates[n1]; s++) {
-				idx = s+maxState*e;
-				msg_o[idx] = (1-momentum) * old_msg_o[idx]
-						   + momentum * (msg_o[idx] / z);
+			if (z != 0.0) /* Normalize */
+			{
+				for (s = 0; s < nStates[n1]; s++)
+					msg_o[s+maxState*e] = msg_o[s+maxState*e] / z;
 			}
 			
 			z = 0.0;
 			for (s = 0; s < nStates[n2]; s++) {
 				idx = s+maxState*(e+nEdges);
-				msg_o[idx] = pow(tmp_i[idx], (q2-1)/d2)
-						   * pow(tmp_o[idx], 1/d2);
+				msg_o[idx] = zeroIfNaN(
+								pow(tmp_i[idx], (q2-1)/d2)
+							  * pow(tmp_o[idx], 1/d2)
+							 );
 				z += msg_o[idx];
 			}
-			for (s = 0; s < nStates[n2]; s++) {
-				idx = s+maxState*(e+nEdges);
-				msg_o[idx] = (1-momentum) * old_msg_o[idx]
-						   + momentum * (msg_o[idx] / z);
+			if (z != 0.0) /* Normalize */
+			{
+				for (s = 0; s < nStates[n2]; s++)
+					msg_o[s+maxState*(e+nEdges)] = msg_o[s+maxState*(e+nEdges)] / z;
+			}
+			
+			/* Damping */
+			if (momentum < 1.0)
+			{
+				for (s = 0; s < nStates[n1]; s++) {
+					idx = s+maxState*e;
+					msg_i[idx] = (1-momentum)*old_msg_i[idx] + momentum*msg_i[idx];
+					msg_o[idx] = (1-momentum)*old_msg_o[idx] + momentum*msg_o[idx];
+				}
+				for (s = 0; s < nStates[n2]; s++) {
+					idx = s+maxState*(e+nEdges);
+					msg_i[idx] = (1-momentum)*old_msg_i[idx] + momentum*msg_i[idx];
+					msg_o[idx] = (1-momentum)*old_msg_o[idx] + momentum*msg_o[idx];
+				}
 			}
 		}
 	

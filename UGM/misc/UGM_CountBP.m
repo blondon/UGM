@@ -76,23 +76,35 @@ for i = 1:edgeStruct.maxIter
 		%  n1
 		newm = tmp_i(1:nStates(n1),e).^(edgeCount(e)/d1) .* ...
 			   tmp_o(1:nStates(n1),e).^((q1-edgeCount(e))/d1);
-		newm = newm ./ sum(newm);
-		msg_i(1:nStates(n1),e) = (1-momentum)*msg_i(1:nStates(n1),e) + momentum*newm;
+		newm(isnan(newm)|isinf(newm)) = 0;
+		z = sum(newm);
+		if z ~= 0
+			msg_i(1:nStates(n1),e) = newm ./ z;
+		end
 		%  n2
 		newm = tmp_i(1:nStates(n2),e+nEdges).^(edgeCount(e)/d2) .* ...
 			   tmp_o(1:nStates(n2),e+nEdges).^((q2-edgeCount(e))/d2);
-		newm = newm ./ sum(newm);
-		msg_i(1:nStates(n2),e+nEdges) = (1-momentum)*msg_i(1:nStates(n2),e+nEdges) + momentum*newm;
+		newm(isnan(newm)|isinf(newm)) = 0;
+		z = sum(newm);
+		if z ~= 0
+			msg_i(1:nStates(n2),e+nEdges) = newm ./ z;
+		end
 
 		% Outgoing
 		newm = tmp_i(1:nStates(n1),e).^((q1-1)/d1) .* ...
 			   tmp_o(1:nStates(n1),e).^(1/d1);
-		newm = newm ./ sum(newm);
-		msg_o(1:nStates(n1),e) = (1-momentum)*msg_o(1:nStates(n1),e) + momentum*newm;
+		newm(isnan(newm)|isinf(newm)) = 0;
+		z = sum(newm);
+		if z ~= 0
+			msg_o(1:nStates(n1),e) = newm ./ z;
+		end
 		newm = tmp_i(1:nStates(n2),e+nEdges).^((q2-1)/d2) .* ...
 			   tmp_o(1:nStates(n2),e+nEdges).^(1/d2);
-		newm = newm ./ sum(newm);
-		msg_o(1:nStates(n2),e+nEdges) = (1-momentum)*msg_o(1:nStates(n2),e+nEdges) + momentum*newm;
+		newm(isnan(newm)|isinf(newm)) = 0;
+		z = sum(newm);
+		if z ~= 0
+			msg_o(1:nStates(n2),e+nEdges) = newm ./ z;
+		end
 	end
 	
 % 	% Check for NaNs
@@ -100,6 +112,12 @@ for i = 1:edgeStruct.maxIter
 % 	if any(isnan(msg_i(:))) || any(isnan(msg_o(:)))
 % 		error('Found NaN values\n')
 % 	end
+
+	% Damping
+	if momentum < 1
+		msg_i = (1-momentum).*old_msg_i + momentum.*msg_i;
+		msg_o = (1-momentum).*old_msg_o + momentum.*msg_o;
+	end
 	
 	% Check convergence
 	if all(abs(msg_i(:)-old_msg_i(:)) < convTol) ...

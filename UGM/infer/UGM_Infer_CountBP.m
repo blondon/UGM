@@ -24,7 +24,7 @@ end
 if isfield(edgeStruct,'momentum')
 	momentum = edgeStruct.momentum;
 else
-	momentum = .1;
+	momentum = .9;
 end
 
 if edgeStruct.useMex
