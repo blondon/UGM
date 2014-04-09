@@ -128,7 +128,7 @@ for n = 1:nNodes
 	end
 end
 Aeq = sparse(I,J,V,nNodes,nVar);
-beq = ones(nNodes,1);
+beq = kappa * ones(nNodes,1);
 
 lb = [-inf(nCnt,1) ; zeros(nAux,1)];
 ub = [inf(nCnt,1) ; inf(nAux,1)];
@@ -223,7 +223,7 @@ for n = 1:nNodes
 	end
 end
 Aeq = sparse(I,J,V,nNodes,nVar);
-beq = ones(nNodes,1);
+beq = kappa * ones(nNodes,1);
 
 lb = [-inf(nCnt,1) ; zeros(nAux,1) ; zeros(nSlack,1)];
 ub = [inf(nCnt,1) ; inf(nAux,1) ; (kappa-minKappa)*ones(nSlack,1)];
