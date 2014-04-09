@@ -134,8 +134,8 @@ lb = [-inf(nCnt,1) ; zeros(nAux,1)];
 ub = [inf(nCnt,1) ; inf(nAux,1)];
 
 % Solve QP
-options = optimoptions(@quadprog,'Algorithm','interior-point-convex',...
-						'Display','off','TolCon',tolCon);
+options = optimset('Algorithm','interior-point-convex',...
+				   'Display','off','TolCon',tolCon);
 [x,fval,exitflag] = quadprog(H,f,A,b,Aeq,beq,lb,ub,[],options);
 
 % Output
@@ -229,8 +229,8 @@ lb = [-inf(nCnt,1) ; zeros(nAux,1) ; zeros(nSlack,1)];
 ub = [inf(nCnt,1) ; inf(nAux,1) ; (kappa-minKappa)*ones(nSlack,1)];
 
 % Solve QP
-options = optimoptions(@quadprog,'Algorithm','interior-point-convex',...
-						'Display','off','TolCon',tolCon);
+options = optimset('Algorithm','interior-point-convex',...
+				   'Display','off','TolCon',tolCon);
 [x,fval,exitflag] = quadprog(H,f,A,b,Aeq,beq,lb,ub,[],options);
 
 % Output
