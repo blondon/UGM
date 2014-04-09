@@ -70,7 +70,7 @@ nVar = nCnt + nAux;
 
 % Setup QP variables
 H = sparse(1:nCnt,1:nCnt,ones(nCnt,1),nVar,nVar);
-f = [betheCount ; zeros(nAux,1)];
+f = [-2*betheCount ; zeros(nAux,1)];
 
 I = zeros(nNodes+5*nEdges,1);
 J = zeros(nNodes+5*nEdges,1);
@@ -136,7 +136,8 @@ ub = [inf(nCnt,1) ; inf(nAux,1)];
 % Solve QP
 options = optimset('Algorithm','interior-point-convex',...
 				   'Display','off','TolCon',tolCon);
-[x,fval,exitflag] = quadprog(H,f,A,b,Aeq,beq,lb,ub,[],options);
+% [x,fval,exitflag] = quadprog(H,f,A,b,Aeq,beq,lb,ub,[],options);
+[x,fval,exitflag] = quadprog(H,f,A,b,[],[],lb,ub,[],options); % no validity constraints
 
 % Output
 nodeCount = x(1:nNodes);
@@ -157,7 +158,7 @@ nVar = nCnt + nAux + nSlack;
 
 % Setup QP variables
 H = sparse(1:nCnt,1:nCnt,ones(nCnt,1),nVar,nVar);
-f = [betheCount ; zeros(nAux,1) ; ones(nSlack,1)];
+f = [-2*betheCount ; zeros(nAux,1) ; ones(nSlack,1)];
 
 I = zeros(nCnt + 2*nAux + nSlack,1);
 J = zeros(nCnt + 2*nAux + nSlack,1);
