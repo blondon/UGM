@@ -8,8 +8,6 @@ nStates = double(edgeStruct.nStates);
 % Initialize
 msg_i = zeros(maxState,nEdges*2);
 msg_o = zeros(maxState,nEdges*2);
-old_msg_i = zeros(maxState,nEdges*2);
-old_msg_o = zeros(maxState,nEdges*2);
 for e = 1:nEdges
 	n1 = edgeEnds(e,1);
 	n2 = edgeEnds(e,2);
@@ -19,6 +17,8 @@ for e = 1:nEdges
 	msg_o(1:nStates(n2),e+nEdges) = 1/nStates(n2); % Message n2 -> e
 	edgePot(1:nStates(n1),1:nStates(n2),e) = edgePot(1:nStates(n1),1:nStates(n2),e).^(1/edgeCount(e));
 end
+old_msg_i = msg_i;
+old_msg_o = msg_o;
 
 % Main loop
 for i = 1:edgeStruct.maxIter
@@ -115,8 +115,8 @@ for i = 1:edgeStruct.maxIter
 
 	% Damping
 	if momentum < 1
-		msg_i = (1-momentum).*old_msg_i + momentum.*msg_i;
-		msg_o = (1-momentum).*old_msg_o + momentum.*msg_o;
+		msg_i = old_msg_i.^(1-momentum) .* msg_i.^momentum;
+		msg_o = old_msg_o.^(1-momentum) .* msg_o.^momentum;
 	end
 	
 	% Check convergence
