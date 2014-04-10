@@ -82,10 +82,14 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 		for (s = 0; s < nStates[n1]; s++) {
 			msg_i[s+maxState*e] = 1.0/nStates[n1];
 			msg_o[s+maxState*e] = 1.0/nStates[n1];
+			old_msg_i[s+maxState*e] = 1.0/nStates[n1];
+			old_msg_o[s+maxState*e] = 1.0/nStates[n1];
 		}
 		for (s = 0; s < nStates[n2]; s++) {
 			msg_i[s+maxState*(e+nEdges)] = 1.0/nStates[n2];
 			msg_o[s+maxState*(e+nEdges)] = 1.0/nStates[n2];
+			old_msg_i[s+maxState*(e+nEdges)] = 1.0/nStates[n2];
+			old_msg_o[s+maxState*(e+nEdges)] = 1.0/nStates[n2];
 		}
 	}
 	
@@ -176,6 +180,11 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 				for (s = 0; s < nStates[n1]; s++)
 					msg_i[s+maxState*e] = msg_i[s+maxState*e] / z;
 			}
+// 			else
+// 			{
+// 				for (s = 0; s < nStates[n1]; s++)
+// 					msg_i[s+maxState*e] = 1.0 / nStates[n1];
+// 			}
 			
 			z = 0.0;
 			for (s = 0; s < nStates[n2]; s++) {
@@ -191,6 +200,11 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 				for (s = 0; s < nStates[n2]; s++)
 					msg_i[s+maxState*(e+nEdges)] = msg_i[s+maxState*(e+nEdges)] / z;
 			}
+// 			else
+// 			{
+// 				for (s = 0; s < nStates[n2]; s++)
+// 					msg_i[s+maxState*(e+nEdges)] = 1.0 / nStates[n2];
+// 			}
 			
 			/* Outgoing */
 			z = 0.0;
@@ -207,6 +221,11 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 				for (s = 0; s < nStates[n1]; s++)
 					msg_o[s+maxState*e] = msg_o[s+maxState*e] / z;
 			}
+// 			else
+// 			{
+// 				for (s = 0; s < nStates[n1]; s++)
+// 					msg_o[s+maxState*e] = 1.0 / nStates[n1];
+// 			}
 			
 			z = 0.0;
 			for (s = 0; s < nStates[n2]; s++) {
@@ -222,19 +241,24 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 				for (s = 0; s < nStates[n2]; s++)
 					msg_o[s+maxState*(e+nEdges)] = msg_o[s+maxState*(e+nEdges)] / z;
 			}
+// 			else
+// 			{
+// 				for (s = 0; s < nStates[n2]; s++)
+// 					msg_o[s+maxState*(e+nEdges)] = 1.0 / nStates[n2];
+// 			}
 			
 			/* Damping */
 			if (momentum < 1.0)
 			{
 				for (s = 0; s < nStates[n1]; s++) {
 					idx = s+maxState*e;
-					msg_i[idx] = (1-momentum)*old_msg_i[idx] + momentum*msg_i[idx];
-					msg_o[idx] = (1-momentum)*old_msg_o[idx] + momentum*msg_o[idx];
+					msg_i[idx] = pow(old_msg_i[idx],1-momentum) * pow(msg_i[idx],momentum);
+					msg_o[idx] = pow(old_msg_o[idx],1-momentum) * pow(msg_o[idx],momentum);
 				}
 				for (s = 0; s < nStates[n2]; s++) {
 					idx = s+maxState*(e+nEdges);
-					msg_i[idx] = (1-momentum)*old_msg_i[idx] + momentum*msg_i[idx];
-					msg_o[idx] = (1-momentum)*old_msg_o[idx] + momentum*msg_o[idx];
+					msg_i[idx] = pow(old_msg_i[idx],1-momentum) * pow(msg_i[idx],momentum);
+					msg_o[idx] = pow(old_msg_o[idx],1-momentum) * pow(msg_o[idx],momentum);
 				}
 			}
 		}

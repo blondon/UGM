@@ -24,18 +24,6 @@ tolConvex = 1e-8;
 [nodeCount_b,edgeCount_b] = UGM_BetheCounts(edgeStruct);
 betheCount = [nodeCount_b ; edgeCount_b];
 
-% % TEMP: for TRBP testing
-% nodeCount_b = ones(edgeStruct.nNodes,1);
-% edgeCount_b = edgeStruct.edgeDist;
-% for e = 1:edgeStruct.nEdges
-% 	n1 = edgeStruct.edgeEnds(e,1);
-% 	n2 = edgeStruct.edgeEnds(e,2);
-% 	nodeCount_b(n1) = nodeCount_b(n1) - edgeStruct.edgeDist(e);
-% 	nodeCount_b(n2) = nodeCount_b(n2) - edgeStruct.edgeDist(e);
-% end
-% betheCount = [nodeCount_b ; edgeCount_b];
-
-
 % Try non-slack QP
 [nodeCount,edgeCount,auxCount,~,exitflag] = solveQP(edgeStruct,kappa,betheCount,tolCon);
 slack = [];
@@ -111,24 +99,24 @@ end
 A = sparse(I,J,V,nCnt,nVar);
 b = -ones(nCnt,1) * kappa;
 
-I = zeros(nNodes+2*nEdges,1);
-J = zeros(nNodes+2*nEdges,1);
-V = zeros(nNodes+2*nEdges,1);
-i = 0;
-for n = 1:nNodes
-	i = i + 1;
-	I(i) = n;
-	J(i) = n;
-	V(i) = 1;
-	for e = UGM_getEdges(n,edgeStruct)
-		i = i + 1;
-		I(i) = n;
-		J(i) = nNodes + e;
-		V(i) = 1;
-	end
-end
-Aeq = sparse(I,J,V,nNodes,nVar);
-beq = kappa * ones(nNodes,1);
+% I = zeros(nNodes+2*nEdges,1);
+% J = zeros(nNodes+2*nEdges,1);
+% V = zeros(nNodes+2*nEdges,1);
+% i = 0;
+% for n = 1:nNodes
+% 	i = i + 1;
+% 	I(i) = n;
+% 	J(i) = n;
+% 	V(i) = 1;
+% 	for e = UGM_getEdges(n,edgeStruct)
+% 		i = i + 1;
+% 		I(i) = n;
+% 		J(i) = nNodes + e;
+% 		V(i) = 1;
+% 	end
+% end
+% Aeq = sparse(I,J,V,nNodes,nVar);
+% beq = kappa * ones(nNodes,1);
 
 lb = [-inf(nCnt,1) ; zeros(nAux,1)];
 ub = [inf(nCnt,1) ; inf(nAux,1)];
@@ -207,24 +195,24 @@ end
 A = sparse(I,J,V,nCnt,nVar);
 b = -ones(nCnt,1) * kappa;
 
-I = zeros(nNodes+2*nEdges,1);
-J = zeros(nNodes+2*nEdges,1);
-V = zeros(nNodes+2*nEdges,1);
-i = 0;
-for n = 1:nNodes
-	i = i + 1;
-	I(i) = n;
-	J(i) = n;
-	V(i) = 1;
-	for e = UGM_getEdges(n,edgeStruct)
-		i = i + 1;
-		I(i) = n;
-		J(i) = nNodes + e;
-		V(i) = 1;
-	end
-end
-Aeq = sparse(I,J,V,nNodes,nVar);
-beq = kappa * ones(nNodes,1);
+% I = zeros(nNodes+2*nEdges,1);
+% J = zeros(nNodes+2*nEdges,1);
+% V = zeros(nNodes+2*nEdges,1);
+% i = 0;
+% for n = 1:nNodes
+% 	i = i + 1;
+% 	I(i) = n;
+% 	J(i) = n;
+% 	V(i) = 1;
+% 	for e = UGM_getEdges(n,edgeStruct)
+% 		i = i + 1;
+% 		I(i) = n;
+% 		J(i) = nNodes + e;
+% 		V(i) = 1;
+% 	end
+% end
+% Aeq = sparse(I,J,V,nNodes,nVar);
+% beq = kappa * ones(nNodes,1);
 
 lb = [-inf(nCnt,1) ; zeros(nAux,1) ; zeros(nSlack,1)];
 ub = [inf(nCnt,1) ; inf(nAux,1) ; (kappa-minKappa)*ones(nSlack,1)];
@@ -251,7 +239,7 @@ else
 	fprintf('LB constraints satisfied\n');
 end
 
-% Validity constraints
+% Variable-validity constraints
 satisfied = 1;
 maxViolation = 0;
 for n = 1:edgeStruct.nNodes
@@ -259,8 +247,8 @@ for n = 1:edgeStruct.nNodes
 	for e = UGM_getEdges(n,edgeStruct)
 		val = val + edgeCount(e);
 	end
-	if abs(val - 1) > tolValid
-		violation = abs(val - 1) - tolValid;
+	if abs(val-kappa) > tolValid
+		violation = abs(val-kappa) - tolValid;
 		%fprintf('Node %d count exceeded validity tolerance %f by %f\n',n,tolValid,violation);
 		if maxViolation < violation
 			maxViolation = violation;
