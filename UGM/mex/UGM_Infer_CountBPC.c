@@ -180,11 +180,13 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 				for (s = 0; s < nStates[n1]; s++)
 					msg_i[s+maxState*e] = msg_i[s+maxState*e] / z;
 			}
-// 			else
-// 			{
-// 				for (s = 0; s < nStates[n1]; s++)
-// 					msg_i[s+maxState*e] = 1.0 / nStates[n1];
-// 			}
+			/*
+			else
+			{
+				for (s = 0; s < nStates[n1]; s++)
+					msg_i[s+maxState*e] = 1.0 / nStates[n1];
+			}
+			*/
 			
 			z = 0.0;
 			for (s = 0; s < nStates[n2]; s++) {
@@ -200,11 +202,13 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 				for (s = 0; s < nStates[n2]; s++)
 					msg_i[s+maxState*(e+nEdges)] = msg_i[s+maxState*(e+nEdges)] / z;
 			}
-// 			else
-// 			{
-// 				for (s = 0; s < nStates[n2]; s++)
-// 					msg_i[s+maxState*(e+nEdges)] = 1.0 / nStates[n2];
-// 			}
+			/*
+			else
+			{
+				for (s = 0; s < nStates[n2]; s++)
+					msg_i[s+maxState*(e+nEdges)] = 1.0 / nStates[n2];
+			}
+			*/
 			
 			/* Outgoing */
 			z = 0.0;
@@ -221,11 +225,13 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 				for (s = 0; s < nStates[n1]; s++)
 					msg_o[s+maxState*e] = msg_o[s+maxState*e] / z;
 			}
-// 			else
-// 			{
-// 				for (s = 0; s < nStates[n1]; s++)
-// 					msg_o[s+maxState*e] = 1.0 / nStates[n1];
-// 			}
+			/*
+			else
+			{
+				for (s = 0; s < nStates[n1]; s++)
+					msg_o[s+maxState*e] = 1.0 / nStates[n1];
+			}
+			*/
 			
 			z = 0.0;
 			for (s = 0; s < nStates[n2]; s++) {
@@ -241,11 +247,13 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 				for (s = 0; s < nStates[n2]; s++)
 					msg_o[s+maxState*(e+nEdges)] = msg_o[s+maxState*(e+nEdges)] / z;
 			}
-// 			else
-// 			{
-// 				for (s = 0; s < nStates[n2]; s++)
-// 					msg_o[s+maxState*(e+nEdges)] = 1.0 / nStates[n2];
-// 			}
+			/*
+			else
+			{
+				for (s = 0; s < nStates[n2]; s++)
+					msg_o[s+maxState*(e+nEdges)] = 1.0 / nStates[n2];
+			}
+			*/
 			
 			/* Damping */
 			if (momentum < 1.0)
@@ -284,7 +292,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 	
 	if(iter == maxIter)
 		printf("CountBP did not converge after %d iterations\n",maxIter);
-// 	printf("Stopped after %d iterations\n",iter);
+	/*printf("Stopped after %d iterations\n",iter);*/
 	
 	/* Compute nodeBel */
 	for (n = 0; n < nNodes; n++)
