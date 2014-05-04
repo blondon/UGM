@@ -11,7 +11,8 @@ function [nodeBel,edgeBel,logZ] = UGM_Infer_ConvexBP(convexity,nodePot,edgePot,e
 
 assert(nargin >= 5, 'USAGE: UGM_Infer_ConvexBP(convexity,nodePot,edgePot,edgeStruct,inferFunc)')
 
-assert(convexity > 0, 'In UGM_Infer_ConvexBP: convexity must be strictly positive.')
+assert(convexity > 0, ...
+	sprintf('In UGM_Infer_ConvexBP: convexity must be strictly positive (kappa=%f)',convexity))
 
 if nargout == 1
 	[nodeBel] = inferFunc(nodePot.^(1/convexity),edgePot.^(1/convexity),edgeStruct,varargin{:});

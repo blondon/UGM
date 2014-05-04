@@ -1,4 +1,4 @@
-function [msg_i,msg_o] = UGM_CountBP(nodePot,edgePot,nodeCount,edgeCount,edgeStruct,momentum,convTol)
+function [msg_i,msg_o] = UGM_CountBP(nodePot,edgePot,nodeCount,edgeCount,edgeStruct,momentum,convTol,maximize)
 
 [nNodes,maxState] = size(nodePot);
 nEdges = size(edgePot,3);
@@ -31,8 +31,15 @@ for i = 1:edgeStruct.maxIter
 		
 		% Incoming
 		pot = edgePot(1:nStates(n1),1:nStates(n2),e);
-		tmp_i(1:nStates(n1),e) = pot * msg_o(1:nStates(n2),e+nEdges);
-		tmp_i(1:nStates(n2),e+nEdges) = pot' * msg_o(1:nStates(n1),e);
+		if maximize
+			% Max-product
+			tmp_i(1:nStates(n1),e) = max(pot.*repmat(msg_o(1:nStates(n2),e+nEdges)',nStates(n1),1), [], 2);
+			tmp_i(1:nStates(n2),e+nEdges) = max(pot'.*repmat(msg_o(1:nStates(n1),e)',nStates(n2),1), [], 2);
+		else
+			% Sum-product
+			tmp_i(1:nStates(n1),e) = pot * msg_o(1:nStates(n2),e+nEdges);
+			tmp_i(1:nStates(n2),e+nEdges) = pot' * msg_o(1:nStates(n1),e);
+		end
 		
 		% Outgoing
 		%  n1

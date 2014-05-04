@@ -41,6 +41,7 @@ mex -IUGM/mex -outdir UGM/compiled UGM/mex/UGM_Decode_ICMC.c
 mex -IUGM/mex -outdir UGM/compiled UGM/mex/UGM_Decode_GraphCutC.c
 mex -IUGM/mex -outdir UGM/compiled UGM/mex/UGM_Sample_GibbsC.c
 mex -IUGM/mex -outdir UGM/compiled UGM/mex/UGM_Infer_CountBPC.c
+mex -IUGM/mex -outdir UGM/compiled UGM/mex/UGM_Decode_CountBPC.c
 mex -IUGM/mex -outdir UGM/compiled UGM/mex/UGM_Infer_MFC.c
 mex -IUGM/mex -outdir UGM/compiled UGM/mex/UGM_Infer_LBPC.c
 mex -IUGM/mex -outdir UGM/compiled UGM/mex/UGM_Decode_LBPC.c

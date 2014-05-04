@@ -24,7 +24,7 @@ end
 if isfield(edgeStruct,'momentum')
 	momentum = edgeStruct.momentum;
 else
-	momentum = .9;
+	momentum = 1;
 end
 
 if edgeStruct.useMex
@@ -42,26 +42,16 @@ end
 %% Non-mex version
 function [nodeBel,edgeBel,logZ] = Infer_CountBP(nodePot,edgePot,edgeStruct,nodeCount,edgeCount,momentum,convTol)
 
-[nNodes,maxState] = size(nodePot);
-nEdges = size(edgePot,3);
+nNodes = edgeStruct.nNodes;
+nEdges = edgeStruct.nEdges;
 edgeEnds = edgeStruct.edgeEnds;
-V = edgeStruct.V;
-E = edgeStruct.E;
 nStates = edgeStruct.nStates;
 maxStates = max(nStates);
+V = edgeStruct.V;
+E = edgeStruct.E;
 
-% % For testing: set counts to Bethe approx
-% nodeCount = ones(nNodes,1);
-% edgeCount = ones(nEdges,1);
-% for e = 1:nEdges
-% 	n1 = edgeEnds(e,1);
-% 	n2 = edgeEnds(e,2);
-% 	nodeCount(n1) = nodeCount(n1) - 1;
-% 	nodeCount(n2) = nodeCount(n2) - 1;
-% end
-
-[msg_i,msg_o] = UGM_CountBP(nodePot,edgePot,nodeCount,edgeCount,edgeStruct,momentum,convTol);
-
+% Compute messages
+[msg_i,msg_o] = UGM_CountBP(nodePot,edgePot,nodeCount,edgeCount,edgeStruct,momentum,convTol,0);
 
 % Compute nodeBel
 nodeBel = zeros(nNodes,maxStates);
@@ -75,12 +65,12 @@ for n = 1:nNodes
             prod_of_msgs = prod_of_msgs .* msg_i(1:nStates(n),e+nEdges);
         end
     end
-    nodeBel(n,1:nStates(n)) = prod_of_msgs'./ sum(prod_of_msgs);
+    nodeBel(n,1:nStates(n)) = prod_of_msgs' ./ sum(prod_of_msgs);
 end
 
 if nargout > 1
     % Compute edge beliefs
-    edgeBel = zeros(maxState,maxState,nEdges);
+    edgeBel = zeros(maxStates,maxStates,nEdges);
 	for e = 1:nEdges
         n1 = edgeEnds(e,1);
         n2 = edgeEnds(e,2);
@@ -120,4 +110,5 @@ if nargout > 2
     F = (Energy1+Energy2) - (Entropy1+Entropy2);
     logZ = -F;
 end
+
 end
