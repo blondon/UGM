@@ -33,17 +33,30 @@ else
 	% Compute nodeBel
 	nodeBel = zeros(nNodes,maxState);
 	for n = 1:nNodes
+		% nodeBel = nodePot * (product of exponentiated messages)
 		edges = E(V(n):V(n+1)-1);
-		prod_of_msgs(1:nStates(n),n) = nodePot(n,1:nStates(n))';
+		prod_of_msgs = nodePot(n,1:nStates(n))';
 		for e = edges(:)'
 			if n == edgeEnds(e,2)
-				prod_of_msgs(1:nStates(n),n) = prod_of_msgs(1:nStates(n),n) .* (new_msg(1:nStates(n),e).^mu(e));
+				prod_of_msgs = prod_of_msgs .* new_msg(1:nStates(n),e).^mu(e);
 			else
-				prod_of_msgs(1:nStates(n),n) = prod_of_msgs(1:nStates(n),n) .* (new_msg(1:nStates(n),e+nEdges).^mu(e));
+				prod_of_msgs = prod_of_msgs .* new_msg(1:nStates(n),e+nEdges).^mu(e);
 			end
 		end
-		nodeBel(n,1:nStates(n)) = prod_of_msgs(1:nStates(n),n)'./sum(prod_of_msgs(1:nStates(n),n));
+		
+		% Safe normalize
+		Z = sum(prod_of_msgs);
+		if Z == 0
+			nodeBel(n,1:nStates(n)) = 1 / nStates(n);
+		else
+			nodeBel(n,1:nStates(n)) = prod_of_msgs' ./ Z;
+		end
 	end
+% 	if any(~isfinite(nodeBel(:)))
+% 		1
+% 	end
+	% Clamp to [0,1] (just in case)
+	nodeBel(nodeBel<0) = 0; nodeBel(nodeBel>1) = 1;
 
 	% Compute edgeBel
 	if nargout > 1
@@ -83,12 +96,26 @@ else
 					temp2 = temp2 ./ incoming.^(1-mu(e2));
 				end
 			end
+			
+			% Unnormalized edge beliefs
+			eb = repmat(temp1,[1 nStates(n2)]) .* repmat(temp2',[nStates(n1) 1]) ...
+				.* edgePot(1:nStates(n1),1:nStates(n2),e).^(1/mu(e));
+			eb(~isfinite(eb)) = 0;
 
-			eb = repmat(temp1,[1 nStates(n2)]).*repmat(temp2',[nStates(n1) 1]).*(edgePot(1:nStates(n1),1:nStates(n2),e).^(1/mu(e)));
-
-			edgeBel(1:nStates(n1),1:nStates(n2),e) = eb./sum(eb(:));
+			% Safe normalize
+			Z = sum(eb(:));
+			if Z == 0
+				edgeBel(1:nStates(n1),1:nStates(n2),e) = 1 / (nStates(n1)*nStates(n2));
+			else
+				edgeBel(1:nStates(n1),1:nStates(n2),e) = eb ./ Z;
+			end
 		end
 	end
+% 	if any(~isfinite(edgeBel(:)))
+% 		1
+% 	end
+	% Clamp to [0,1] (just in case)
+	edgeBel(edgeBel<0) = 0; edgeBel(edgeBel>1) = 1;
 
 	% Compute Free Energy
 	if nargout > 2
@@ -99,24 +126,36 @@ else
 		edgeBel = edgeBel+eps;
 		for n = 1:nNodes
 			edges = E(V(n):V(n+1)-1);
+			nb = nodeBel(n,1:nStates(n));
+			np = nodePot(n,1:nStates(n));
 
 			% Node Entropy (note: different weighting than in Bethe)
-			Entropy1 = Entropy1 - (1-sum(mu(edges)))*sum(nodeBel(n,1:nStates(n)).*log(nodeBel(n,1:nStates(n))));
+			nodeEntropy = nb .* log(nb);
+			nodeEntropy(~isfinite(nodeEntropy)) = 0;
+			Entropy1 = Entropy1 - (1-sum(mu(edges)))*sum(nodeEntropy);
 
 			% Node Energy
-			Energy1 = Energy1 + sum(nodeBel(n,1:nStates(n)).*log(nodePot(n,1:nStates(n))));
+			% Note: can be infinite if (nb > 1e-10) and (np < 1e-10)
+			nodeEnergy = nb .* log(np);
+			nodeEnergy((nb<1e-10)&(np<1e-10)) = 0;
+			Energy1 = Energy1 + sum(nodeEnergy);
 		end
 		for e = 1:nEdges
 			n1 = edgeEnds(e,1);
 			n2 = edgeEnds(e,2);
+			eb = edgeBel(1:nStates(n1),1:nStates(n2),e);
+			ep = edgePot(1:nStates(n1),1:nStates(n2),e);
 
 			% Pairwise Entropy (note: different weighting than in Bethe)
-			eb = edgeBel(1:nStates(n1),1:nStates(n2),e);
-			Entropy2 = Entropy2 - mu(e)*sum(eb(:).*log(eb(:)));
+			edgeEntropy = eb .* log(eb);
+			edgeEntropy(~isfinite(edgeEntropy)) = 0;
+			Entropy2 = Entropy2 - mu(e)*sum(edgeEntropy(:));
 
 			% Pairwise Energy
-			ep = edgePot(1:nStates(n1),1:nStates(n2),e);
-			Energy2 = Energy2 + sum(eb(:).*log(ep(:)));
+			% Note: can be infinite if (eb > 1e-10) and (ep < 1e-10)
+			edgeEnergy = eb .* log(ep);
+			edgeEnergy((eb<1e-10)&(ep<1e-10)) = 0;
+			Energy2 = Energy2 + sum(edgeEnergy(:));
 		end
 		H = Entropy1 + Entropy2;
 		logZ = Energy1 + Energy2 + H;

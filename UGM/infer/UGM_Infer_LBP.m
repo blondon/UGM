@@ -17,17 +17,18 @@ else
 
 
 	% Compute nodeBel
+	nodeBel = zeros(nNodes,maxState);
 	for n = 1:nNodes
 		edges = UGM_getEdges(n,edgeStruct);
-		prod_of_msgs(1:nStates(n),n) = nodePot(n,1:nStates(n))';
+		prod_of_msgs = nodePot(n,1:nStates(n))';
 		for e = edges
 			if n == edgeEnds(e,2)
-				prod_of_msgs(1:nStates(n),n) = prod_of_msgs(1:nStates(n),n) .* new_msg(1:nStates(n),e);
+				prod_of_msgs = prod_of_msgs .* new_msg(1:nStates(n),e);
 			else
-				prod_of_msgs(1:nStates(n),n) = prod_of_msgs(1:nStates(n),n) .* new_msg(1:nStates(n),e+nEdges);
+				prod_of_msgs = prod_of_msgs .* new_msg(1:nStates(n),e+nEdges);
 			end
 		end
-		nodeBel(n,1:nStates(n)) = prod_of_msgs(1:nStates(n),n)'./sum(prod_of_msgs(1:nStates(n),n));
+		nodeBel(n,1:nStates(n)) = prod_of_msgs'./sum(prod_of_msgs);
 	end
 
 	if nargout > 1
