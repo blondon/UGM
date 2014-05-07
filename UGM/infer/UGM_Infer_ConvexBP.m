@@ -1,4 +1,4 @@
-function [nodeBel,edgeBel,logZ] = UGM_Infer_ConvexBP(convexity,nodePot,edgePot,edgeStruct,inferFunc,varargin)
+function [nodeBel,edgeBel,logZ,H] = UGM_Infer_ConvexBP(convexity,nodePot,edgePot,edgeStruct,inferFunc,varargin)
 %
 % Convexified BP inference.
 %
@@ -18,5 +18,5 @@ if nargout == 1
 elseif nargout == 2
 	[nodeBel,edgeBel] = inferFunc(nodePot.^(1/convexity),edgePot.^(1/convexity),edgeStruct,varargin{:});
 else
-	[nodeBel,edgeBel,logZ] = inferFunc(nodePot.^(1/convexity),edgePot.^(1/convexity),edgeStruct,varargin{:});
+	[nodeBel,edgeBel,logZ,H] = inferFunc(nodePot.^(1/convexity),edgePot.^(1/convexity),edgeStruct,varargin{:});
 end

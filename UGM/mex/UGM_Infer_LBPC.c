@@ -10,7 +10,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
     iter,maxIter,nNbrs,
     *edgeEnds, *nStates, *V, *E,*y;
     
-    double *nodePot, *edgePot, *nodeBel, *edgeBel, *logZ,
+    double *nodePot, *edgePot, *nodeBel, *edgeBel, *logZ, *H,
     z,energy1,energy2,entropy1,entropy2,*prodMsgs,*oldMsgs,*newMsgs,*tmp;
     
    /* Input */
@@ -39,9 +39,11 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
     dims[2] = nEdges;
     plhs[1] = mxCreateNumericArray(3,dims,mxDOUBLE_CLASS,mxREAL);
     plhs[2] = mxCreateDoubleMatrix(1,1,mxREAL);
+	plhs[3] = mxCreateDoubleMatrix(1,1,mxREAL);
     nodeBel = mxGetPr(plhs[0]);
     edgeBel = mxGetPr(plhs[1]);
     logZ = mxGetPr(plhs[2]);
+	H = mxGetPr(plhs[3]);
     
     prodMsgs = mxCalloc(maxState*nNodes,sizeof(double));
     oldMsgs = mxCalloc(maxState*nEdges*2,sizeof(double));
@@ -247,9 +249,10 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
         for(s = 0; s < nStates[n]; s++)
         {
             if(nodeBel[n+nNodes*s] > 1e-10)
-                entropy1 += (nNbrs-1)*nodeBel[n+nNodes*s]*log(nodeBel[n+nNodes*s]);
-            
-            energy1 -= nodeBel[n+nNodes*s]*log(nodePot[n+nNodes*s]);
+			{
+                entropy1 -= (1-nNbrs)*nodeBel[n+nNodes*s]*log(nodeBel[n+nNodes*s]);
+			}
+            energy1 += nodeBel[n+nNodes*s]*log(nodePot[n+nNodes*s]);
         }
     }
     for(e = 0; e < nEdges; e++)
@@ -265,11 +268,12 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
                 {
                     entropy2 -= edgeBel[s1+maxState*(s2+maxState*e)]*log(edgeBel[s1+maxState*(s2+maxState*e)]);
                 }
-                energy2 -= edgeBel[s1+maxState*(s2+maxState*e)]*log(edgePot[s1+maxState*(s2+maxState*e)]);
+                energy2 += edgeBel[s1+maxState*(s2+maxState*e)]*log(edgePot[s1+maxState*(s2+maxState*e)]);
             }
         }
     }
-    logZ[0] = -energy1-energy2+entropy1+entropy2;
+	H[0] = entropy1 + entropy2;
+    logZ[0] = energy1 + energy2 + H[0];
     
     
     

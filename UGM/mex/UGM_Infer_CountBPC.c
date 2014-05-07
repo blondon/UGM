@@ -11,7 +11,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 		*edgeEnds,*nStates,*V,*E,*y;
 	
 	double *nodePot,*edgePot,*nodeCount,*edgeCount,
-			*nodeBel,*edgeBel,*logZ,
+			*nodeBel,*edgeBel,*logZ,*H,
 			q1,q2,d1,d2,
 			*powEdgePot,
 			*msg_i,*msg_o,*tmp_i,*tmp_o,*old_msg_i,*old_msg_o,
@@ -50,9 +50,11 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 	dims[2] = nEdges;
 	plhs[1] = mxCreateNumericArray(3,dims,mxDOUBLE_CLASS,mxREAL);
 	plhs[2] = mxCreateDoubleMatrix(1,1,mxREAL);
+	plhs[3] = mxCreateDoubleMatrix(1,1,mxREAL);
 	nodeBel = mxGetPr(plhs[0]);
 	edgeBel = mxGetPr(plhs[1]);
 	logZ = mxGetPr(plhs[2]);
+	H = mxGetPr(plhs[3]);
 	
 	/* Local copy of edgePot^(1/edgeCount) */
 	powEdgePot = mxCalloc(maxState*maxState*nEdges,sizeof(double));
@@ -354,11 +356,10 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 	entropy2 = 0;
 	for (n = 0; n < nNodes; n++)
 	{
-		nNbrs = V[n+1]-V[n];
 		for (s = 0; s < nStates[n]; s++) {
 			if (nodeBel[n+nNodes*s] > 1e-10)
-				entropy1 += (nNbrs-1)*nodeBel[n+nNodes*s]*log(nodeBel[n+nNodes*s]);
-			energy1 -= nodeBel[n+nNodes*s] * log(nodePot[n+nNodes*s]);
+				entropy1 -= nodeCount[n] * nodeBel[n+nNodes*s] * log(nodeBel[n+nNodes*s]);
+			energy1 += nodeBel[n+nNodes*s] * log(nodePot[n+nNodes*s]);
 		}
 	}
 	for (e = 0; e < nEdges; e++)
@@ -368,12 +369,13 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 		for (s1 = 0; s1 < nStates[n1]; s1++) {
 			for (s2 = 0; s2 < nStates[n2]; s2++) {
 				if (edgeBel[s1+maxState*(s2+maxState*e)] > 1e-10)
-					entropy2 -= edgeBel[s1+maxState*(s2+maxState*e)] * log(edgeBel[s1+maxState*(s2+maxState*e)]);
-				energy2 -= edgeBel[s1+maxState*(s2+maxState*e)] * log(edgePot[s1+maxState*(s2+maxState*e)]);
+					entropy2 -= edgeCount[e] * edgeBel[s1+maxState*(s2+maxState*e)] * log(edgeBel[s1+maxState*(s2+maxState*e)]);
+				energy2 += edgeBel[s1+maxState*(s2+maxState*e)] * log(edgePot[s1+maxState*(s2+maxState*e)]);
 			}
 		}
 	}
-	logZ[0] = (entropy1 + entropy2) - (energy1 + energy2);
+	H[0] = entropy1 + entropy2;
+	logZ[0] = energy1 + energy2 + H[0];
 	
 	/* Free memory */
 	mxFree(powEdgePot);
