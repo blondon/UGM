@@ -85,33 +85,39 @@ for i = 1:edgeStruct.maxIter
 			   tmp_o(1:nStates(n1),e).^((q1-edgeCount(e))/d1);
 		newm(isnan(newm)|isinf(newm)) = 0;
 		z = sum(newm);
-		if z ~= 0
-			msg_i(1:nStates(n1),e) = newm ./ z;
+		if z > 0
+			newm = newm ./ z;
 		end
+		msg_i(1:nStates(n1),e) = newm;
 		%  n2
 		newm = tmp_i(1:nStates(n2),e+nEdges).^(edgeCount(e)/d2) .* ...
 			   tmp_o(1:nStates(n2),e+nEdges).^((q2-edgeCount(e))/d2);
 		newm(isnan(newm)|isinf(newm)) = 0;
 		z = sum(newm);
-		if z ~= 0
-			msg_i(1:nStates(n2),e+nEdges) = newm ./ z;
+		if z > 0
+			newm = newm ./ z;
 		end
+		msg_i(1:nStates(n2),e+nEdges) = newm;
 
 		% Outgoing
+		%  n1
 		newm = tmp_i(1:nStates(n1),e).^((q1-1)/d1) .* ...
 			   tmp_o(1:nStates(n1),e).^(1/d1);
 		newm(isnan(newm)|isinf(newm)) = 0;
 		z = sum(newm);
-		if z ~= 0
-			msg_o(1:nStates(n1),e) = newm ./ z;
+		if z > 0
+			newm = newm ./ z;
 		end
+		msg_o(1:nStates(n1),e) = newm;
+		%  n2
 		newm = tmp_i(1:nStates(n2),e+nEdges).^((q2-1)/d2) .* ...
 			   tmp_o(1:nStates(n2),e+nEdges).^(1/d2);
 		newm(isnan(newm)|isinf(newm)) = 0;
 		z = sum(newm);
-		if z ~= 0
-			msg_o(1:nStates(n2),e+nEdges) = newm ./ z;
+		if z > 0
+			newm = newm ./ z;
 		end
+		msg_o(1:nStates(n2),e+nEdges) = newm;
 	end
 	
 % 	% Check for NaNs

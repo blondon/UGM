@@ -56,8 +56,20 @@ else
 				prod_of_msgs = prod_of_msgs .* msg_i(1:nStates(n),e+nEdges);
 			end
 		end
-		nodeBel(n,1:nStates(n)) = prod_of_msgs' ./ sum(prod_of_msgs);
+		
+		% Safe normalize
+		Z = sum(prod_of_msgs);
+		if Z == 0
+			nodeBel(n,1:nStates(n)) = 1 / nStates(n);
+		else
+			nodeBel(n,1:nStates(n)) = prod_of_msgs' ./ Z;
+		end
 	end
+% 	if any(~isfinite(nodeBel(:)))
+% 		1
+% 	end
+	% Clamp to [0,1] (just in case)
+	nodeBel(nodeBel<0) = 0; nodeBel(nodeBel>1) = 1;
 
 	if nargout > 1
 		% Compute edge beliefs
@@ -67,9 +79,22 @@ else
 			n2 = edgeEnds(e,2);
 			eb = edgePot(1:nStates(n1),1:nStates(n2),e) .* ...
 				 (msg_o(1:nStates(n1),e) * msg_o(1:nStates(n2),e+nEdges)');
-			edgeBel(1:nStates(n1),1:nStates(n2),e) = eb ./ sum(eb(:));
+			eb(~isfinite(eb)) = 0;
+			
+			% Safe normalize
+			Z = sum(eb(:));
+			if Z == 0
+				edgeBel(1:nStates(n1),1:nStates(n2),e) = 1 / (nStates(n1)*nStates(n2));
+			else
+				edgeBel(1:nStates(n1),1:nStates(n2),e) = eb ./ Z;
+			end
 		end
 	end
+% 	if any(~isfinite(edgeBel(:)))
+% 		1
+% 	end
+	% Clamp to [0,1] (just in case)
+	edgeBel(edgeBel<0) = 0; edgeBel(edgeBel>1) = 1;
 
 	if nargout > 2
 		% Compute Bethe free energy
@@ -78,27 +103,40 @@ else
 		nodeBel = nodeBel+eps;
 		edgeBel = edgeBel+eps;
 		for n = 1:nNodes
-			% Node Entropy (can get divide by zero if beliefs at 0)
 			nb = nodeBel(n,1:nStates(n));
-			Entropy1 = Entropy1 - nodeCount(n)*sum(nb.*log(nb));
+			np = nodePot(n,1:nStates(n));
+			
+			% Node Entropy (can get divide by zero if beliefs at 0)
+			nodeEntropy = nb .* log(nb);
+			nodeEntropy(~isfinite(nodeEntropy)) = 0;
+			Entropy1 = Entropy1 - nodeCount(n)*sum(nodeEntropy);
 
 			% Node Energy
-			Energy1 = Energy1 + sum(nb.*log(nodePot(n,1:nStates(n))));
+			% Note: can be infinite if (nb > 1e-10) and (np < 1e-10)
+			nodeEnergy = nb .* log(np);
+			nodeEnergy((nb<1e-10)&(np<1e-10)) = 0;
+			Energy1 = Energy1 + sum(nodeEnergy);
 		end
 		for e = 1:nEdges
 			n1 = edgeEnds(e,1);
 			n2 = edgeEnds(e,2);
+			eb = edgeBel(1:nStates(n1),1:nStates(n2),e);
+			ep = edgePot(1:nStates(n1),1:nStates(n2),e);
 
 			% Pairwise Entropy (can get divide by zero if beliefs at 0)
-			eb = edgeBel(1:nStates(n1),1:nStates(n2),e);
-			Entropy2 = Entropy2 - edgeCount(e)*sum(eb(:).*log(eb(:)));
+			edgeEntropy = eb .* log(eb);
+			edgeEntropy(~isfinite(edgeEntropy)) = 0;
+			Entropy2 = Entropy2 - edgeCount(e)*sum(edgeEntropy);
 
 			% Pairwise Energy
-			ep = edgePot(1:nStates(n1),1:nStates(n2),e);
-			Energy2 = Energy2 + sum(eb(:).*log(ep(:)));
+			% Note: can be infinite if (eb > 1e-10) and (ep < 1e-10)
+			edgeEnergy = eb .* log(ep);
+			edgeEnergy((eb<1e-10)&(ep<1e-10)) = 0;
+			Energy2 = Energy2 + sum(edgeEnergy(:));
 		end
 		H = Entropy1 + Entropy2;
 		logZ = Energy1 + Energy2 + H;
+		
 	end
 
 end
