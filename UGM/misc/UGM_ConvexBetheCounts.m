@@ -1,9 +1,11 @@
-function [nodeCount,edgeCount,auxCount] = UGM_ConvexBetheCounts(edgeStruct,kappa,minKappa)
+function [nodeCount,edgeCount,auxCount] = UGM_ConvexBetheCounts(edgeStruct,kappa,minKappa,tgt)
 %
 % Computes the counting numbers for the Bethe approximation.
 %
 % edgeStruct : edge structure
-% kappa : minimum modulus of convexity (def: 0)
+% kappa : desired modulus of convexity (def: 0)
+% minKappa : minimum modulus of convexity, if first QP fails (def: 0.01)
+% tgt : target counting numbers: 1 = Bethe (def), 2 = TRW
 %
 % nodeCount : (nNodes x 1) vector of node counting numbers
 % edgeCount : (nEdges x 1) vector of edge counting numbers
@@ -15,17 +17,27 @@ end
 if nargin < 3
 	minKappa = 1e-2;
 end
+if nargin < 4
+	tgt = 1;
+end
 
 tolCon = 1e-8;
 tolValid = 1e-8;
 tolConvex = 1e-8;
 
-% Compute Bethe counting numbers
-[nodeCount_b,edgeCount_b] = UGM_BetheCounts(edgeStruct);
-betheCount = [nodeCount_b ; edgeCount_b];
+% Compute target counting numbers
+if tgt == 1
+	[nodeCount_b,edgeCount_b] = UGM_BetheCounts(edgeStruct);
+	tgtCount = [nodeCount_b ; edgeCount_b];
+elseif tgt == 2
+	[nodeCount_b,edgeCount_b] = UGM_TRBPCounts(edgeStruct);
+	tgtCount = [nodeCount_b ; edgeCount_b];
+else
+	error('tgt must be 1 (Bethe) or 2 (TRW)')
+end
 
 % Try non-slack QP
-[nodeCount,edgeCount,auxCount,~,exitflag] = solveQP(edgeStruct,kappa,betheCount,tolCon);
+[nodeCount,edgeCount,auxCount,~,exitflag] = solveQP(edgeStruct,kappa,tgtCount,tolCon);
 slack = [];
 
 % Check feasibility
@@ -33,21 +45,21 @@ if exitflag == -2
 	fprintf('QP is infeasible. Trying slackened version with minKappa=%f ...\n',minKappa);
 	
 	% Try slackened QP
-	[nodeCount,edgeCount,auxCount,slack,~,exitflag] = solveSlackQP(edgeStruct,kappa,minKappa,betheCount,tolCon);
+	[nodeCount,edgeCount,auxCount,slack,~,exitflag] = solveSlackQP(edgeStruct,kappa,minKappa,tgtCount,tolCon);
 	if exitflag == -2
 		fprintf('Slackened QP is infeasible. Try a different value for kappa,minKappa.\n');
 	end
 end
 
 % Objective value
-fprintf('Fit: %f\n', norm([nodeCount;edgeCount]-betheCount,2)^2);
+fprintf('Fit: %f\n', norm([nodeCount;edgeCount]-tgtCount,2)^2);
 
 % Verify
 verifySolution(edgeStruct,kappa,nodeCount,edgeCount,auxCount,slack,tolValid);
 
 
 %% Non-slackened QP
-function [nodeCount,edgeCount,auxCount,fval,exitflag] = solveQP(edgeStruct,kappa,betheCount,tolCon)
+function [nodeCount,edgeCount,auxCount,fval,exitflag] = solveQP(edgeStruct,kappa,tgtCount,tolCon)
 
 % Dimensions
 nNodes = double(edgeStruct.nNodes);
@@ -58,7 +70,7 @@ nVar = nCnt + nAux;
 
 % Setup QP variables
 H = sparse(1:nCnt,1:nCnt,ones(nCnt,1),nVar,nVar);
-f = [-2*betheCount ; zeros(nAux,1)];
+f = [-2*tgtCount ; zeros(nAux,1)];
 
 I = zeros(nNodes+5*nEdges,1);
 J = zeros(nNodes+5*nEdges,1);
@@ -99,24 +111,26 @@ end
 A = sparse(I,J,V,nCnt,nVar);
 b = -ones(nCnt,1) * kappa;
 
-% I = zeros(nNodes+2*nEdges,1);
-% J = zeros(nNodes+2*nEdges,1);
-% V = zeros(nNodes+2*nEdges,1);
-% i = 0;
-% for n = 1:nNodes
-% 	i = i + 1;
-% 	I(i) = n;
-% 	J(i) = n;
-% 	V(i) = 1;
-% 	for e = UGM_getEdges(n,edgeStruct)
-% 		i = i + 1;
-% 		I(i) = n;
-% 		J(i) = nNodes + e;
-% 		V(i) = 1;
-% 	end
-% end
-% Aeq = sparse(I,J,V,nNodes,nVar);
-% beq = kappa * ones(nNodes,1);
+Aeq = [];
+beq = [];
+I = zeros(nNodes+2*nEdges,1);
+J = zeros(nNodes+2*nEdges,1);
+V = zeros(nNodes+2*nEdges,1);
+i = 0;
+for n = 1:nNodes
+	i = i + 1;
+	I(i) = n;
+	J(i) = n;
+	V(i) = 1;
+	for e = UGM_getEdges(n,edgeStruct)
+		i = i + 1;
+		I(i) = n;
+		J(i) = nNodes + e;
+		V(i) = 1;
+	end
+end
+Aeq = sparse(I,J,V,nNodes,nVar);
+beq = kappa * ones(nNodes,1);
 
 lb = [-inf(nCnt,1) ; zeros(nAux,1)];
 ub = [inf(nCnt,1) ; inf(nAux,1)];
@@ -125,7 +139,7 @@ ub = [inf(nCnt,1) ; inf(nAux,1)];
 options = optimset('Algorithm','interior-point-convex',...
 				   'Display','off','TolCon',tolCon);
 % [x,fval,exitflag] = quadprog(H,f,A,b,Aeq,beq,lb,ub,[],options);
-[x,fval,exitflag] = quadprog(H,f,A,b,[],[],lb,ub,[],options); % no validity constraints
+[x,fval,exitflag] = quadprog(H,f,A,b,Aeq,beq,lb,ub,[],options); % no validity constraints
 
 % Output
 nodeCount = x(1:nNodes);
@@ -134,7 +148,7 @@ auxCount = x(nCnt+1:end);
 
 
 %% Slackened QP
-function [nodeCount,edgeCount,auxCount,slack,fval,exitflag] = solveSlackQP(edgeStruct,kappa,minKappa,betheCount,tolCon)
+function [nodeCount,edgeCount,auxCount,slack,fval,exitflag] = solveSlackQP(edgeStruct,kappa,minKappa,tgtCount,tolCon)
 
 % Dimensions
 nNodes = double(edgeStruct.nNodes);
@@ -146,7 +160,7 @@ nVar = nCnt + nAux + nSlack;
 
 % Setup QP variables
 H = sparse(1:nCnt,1:nCnt,ones(nCnt,1),nVar,nVar);
-f = [-2*betheCount ; zeros(nAux,1) ; ones(nSlack,1)];
+f = [-2*tgtCount ; zeros(nAux,1) ; ones(nSlack,1)];
 
 I = zeros(nCnt + 2*nAux + nSlack,1);
 J = zeros(nCnt + 2*nAux + nSlack,1);
@@ -195,24 +209,26 @@ end
 A = sparse(I,J,V,nCnt,nVar);
 b = -ones(nCnt,1) * kappa;
 
-% I = zeros(nNodes+2*nEdges,1);
-% J = zeros(nNodes+2*nEdges,1);
-% V = zeros(nNodes+2*nEdges,1);
-% i = 0;
-% for n = 1:nNodes
-% 	i = i + 1;
-% 	I(i) = n;
-% 	J(i) = n;
-% 	V(i) = 1;
-% 	for e = UGM_getEdges(n,edgeStruct)
-% 		i = i + 1;
-% 		I(i) = n;
-% 		J(i) = nNodes + e;
-% 		V(i) = 1;
-% 	end
-% end
-% Aeq = sparse(I,J,V,nNodes,nVar);
-% beq = kappa * ones(nNodes,1);
+Aeq = [];
+beq = [];
+I = zeros(nNodes+2*nEdges,1);
+J = zeros(nNodes+2*nEdges,1);
+V = zeros(nNodes+2*nEdges,1);
+i = 0;
+for n = 1:nNodes
+	i = i + 1;
+	I(i) = n;
+	J(i) = n;
+	V(i) = 1;
+	for e = UGM_getEdges(n,edgeStruct)
+		i = i + 1;
+		I(i) = n;
+		J(i) = nNodes + e;
+		V(i) = 1;
+	end
+end
+Aeq = sparse(I,J,V,nNodes,nVar);
+beq = kappa * ones(nNodes,1);
 
 lb = [-inf(nCnt,1) ; zeros(nAux,1) ; zeros(nSlack,1)];
 ub = [inf(nCnt,1) ; inf(nAux,1) ; (kappa-minKappa)*ones(nSlack,1)];
