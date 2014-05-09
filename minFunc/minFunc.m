@@ -114,6 +114,9 @@ function [x,f,exitflag,output] = minFunc(funObj,x0,options,varargin)
 %   outputFcn - function to run after each iteration (default: []).  It
 %       should have the following interface:
 %       outputFcn(x,iterationType,i,funEvals,f,t,gtd,g,d,optCond,varargin{:});
+%   traceFunc - function to run after each iteration (default: []).
+%       It should have the following interface:
+%       traceFunc(trace);
 %   useMex - where applicable, use mex files to speed things up (default: 1)
 %   t0 - initial step length on first iteration 
 %       (default: 1 if first iteration is Newton-style method, min(1,1/||f'(x0)||_1) if first iteration is gradient-style method)
@@ -241,7 +244,7 @@ end
     corrections,c1,c2,LS_init,cgSolve,qnUpdate,cgUpdate,initialHessType,...
     HessianModify,Fref,useComplex,numDiff,LS_saveHessianComp,...
     Damped,HvFunc,bbType,cycle,...
-    HessianIter,outputFcn,useMex,useNegCurv,precFunc,...
+    HessianIter,outputFcn,traceFunc,useMex,useNegCurv,precFunc,...
     LS_type,LS_interp,LS_multi,checkGrad,t0] = ...
     minFunc_processInputOptions(options);
 
@@ -340,11 +343,12 @@ end
 % Compute optimality of initial point
 optCond = max(abs(g));
 
-if nargout > 3
+if nargout > 3 || ~isempty(traceFunc)
 	% Initialize Trace
 	trace.fval = f;
 	trace.funcCount = funEvals;
 	trace.optCond = optCond;
+	trace.normx = norm(x0);
 end
 
 % Exit if initial point is optimal
@@ -1106,11 +1110,17 @@ for i = 1:maxIter
         fprintf('%10d %10d %15.5e %15.5e %15.5e\n',i,funEvals*funEvalMultiplier,t,f,optCond);
     end
 
-    if nargout > 3
-    % Update Trace
-    trace.fval(end+1,1) = f;
-    trace.funcCount(end+1,1) = funEvals;
-	trace.optCond(end+1,1) = optCond;
+	if nargout > 3 || ~isempty(traceFunc)
+		% Update Trace
+		trace.fval(end+1,1) = f;
+		trace.funcCount(end+1,1) = funEvals;
+		trace.optCond(end+1,1) = optCond;
+		trace.normx(end+1,1) = norm(x);
+	end
+	
+	% Trace callback
+	if ~isempty(traceFunc)
+		traceFunc(trace);
 	end
 
 	% Output Function
