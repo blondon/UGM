@@ -83,7 +83,7 @@ for i = 1:edgeStruct.maxIter
 		%  n1
 		newm = tmp_i(1:nStates(n1),e).^(edgeCount(e)/d1) .* ...
 			   tmp_o(1:nStates(n1),e).^((q1-edgeCount(e))/d1);
-		newm(isnan(newm)|isinf(newm)) = 0;
+		newm(~isfinite(newm)) = 0;
 		z = sum(newm);
 		if z > 0
 			newm = newm ./ z;
@@ -92,7 +92,7 @@ for i = 1:edgeStruct.maxIter
 		%  n2
 		newm = tmp_i(1:nStates(n2),e+nEdges).^(edgeCount(e)/d2) .* ...
 			   tmp_o(1:nStates(n2),e+nEdges).^((q2-edgeCount(e))/d2);
-		newm(isnan(newm)|isinf(newm)) = 0;
+		newm(~isfinite(newm)) = 0;
 		z = sum(newm);
 		if z > 0
 			newm = newm ./ z;
@@ -103,7 +103,7 @@ for i = 1:edgeStruct.maxIter
 		%  n1
 		newm = tmp_i(1:nStates(n1),e).^((q1-1)/d1) .* ...
 			   tmp_o(1:nStates(n1),e).^(1/d1);
-		newm(isnan(newm)|isinf(newm)) = 0;
+		newm(~isfinite(newm)) = 0;
 		z = sum(newm);
 		if z > 0
 			newm = newm ./ z;
@@ -112,7 +112,7 @@ for i = 1:edgeStruct.maxIter
 		%  n2
 		newm = tmp_i(1:nStates(n2),e+nEdges).^((q2-1)/d2) .* ...
 			   tmp_o(1:nStates(n2),e+nEdges).^(1/d2);
-		newm(isnan(newm)|isinf(newm)) = 0;
+		newm(~isfinite(newm)) = 0;
 		z = sum(newm);
 		if z > 0
 			newm = newm ./ z;
@@ -133,8 +133,7 @@ for i = 1:edgeStruct.maxIter
 	end
 	
 	% Check convergence
-	if all(abs(msg_i(:)-old_msg_i(:)) < convTol) ...
-	   && all(abs(msg_o(:)-old_msg_o(:)) < convTol)
+	if (abs(msg_i(:)-old_msg_i(:)) + abs(msg_o(:)-old_msg_o(:))) < convTol
 		break
 	end
 	

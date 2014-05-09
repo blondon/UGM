@@ -77,7 +77,7 @@ else
 		for e = 1:nEdges
 			n1 = edgeEnds(e,1);
 			n2 = edgeEnds(e,2);
-			eb = edgePot(1:nStates(n1),1:nStates(n2),e) .* ...
+			eb = edgePot(1:nStates(n1),1:nStates(n2),e).^(1/edgeCount(e)) .* ...
 				 (msg_o(1:nStates(n1),e) * msg_o(1:nStates(n2),e+nEdges)');
 			eb(~isfinite(eb)) = 0;
 			
@@ -126,7 +126,7 @@ else
 			% Pairwise Entropy (can get divide by zero if beliefs at 0)
 			edgeEntropy = eb .* log(eb);
 			edgeEntropy(~isfinite(edgeEntropy)) = 0;
-			Entropy2 = Entropy2 - edgeCount(e)*sum(edgeEntropy);
+			Entropy2 = Entropy2 - edgeCount(e)*sum(edgeEntropy(:));
 
 			% Pairwise Energy
 			% Note: can be infinite if (eb > 1e-10) and (ep < 1e-10)

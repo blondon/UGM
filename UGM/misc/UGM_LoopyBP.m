@@ -3,14 +3,9 @@ function [new_msg] = UGM_LoopyBP(nodePot,edgePot,edgeStruct,maximize)
 [nNodes,maxState] = size(nodePot);
 nEdges = size(edgePot,3);
 edgeEnds = edgeStruct.edgeEnds;
-V = edgeStruct.V;
-E = edgeStruct.E;
 nStates = double(edgeStruct.nStates);
 
 % Initialize
-nodeBel = zeros(nNodes,maxState);
-oldNodeBel = nodeBel;
-prod_of_msgs = zeros(maxState,nNodes);
 old_msg = zeros(maxState,nEdges*2);
 new_msg = zeros(maxState,nEdges*2);
 for e = 1:nEdges
