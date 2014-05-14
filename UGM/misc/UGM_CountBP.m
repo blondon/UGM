@@ -140,9 +140,9 @@ for i = 1:edgeStruct.maxIter
 	end
 	
 	% Check convergence
-	fprintf('sum-abs-diff = %f, max-abs-diff = %f\n', ...
-		sum([abs(msg_i(:)-old_msg_i(:));abs(msg_o(:)-old_msg_o(:))]), ...
-		max([abs(msg_i(:)-old_msg_i(:));abs(msg_o(:)-old_msg_o(:))]));
+% 	fprintf('sum-abs-diff = %f, max-abs-diff = %f\n', ...
+% 		sum([abs(msg_i(:)-old_msg_i(:));abs(msg_o(:)-old_msg_o(:))]), ...
+% 		max([abs(msg_i(:)-old_msg_i(:));abs(msg_o(:)-old_msg_o(:))]));
 	if all(abs(msg_i(:)-old_msg_i(:)) < convTol) && all(abs(msg_o(:)-old_msg_o(:)) < convTol)
 		break
 	end
@@ -155,44 +155,6 @@ for i = 1:edgeStruct.maxIter
 	old_msg_i = msg_i;
 	old_msg_o = msg_o;
 end
-
-% % Normalize messages on the way out
-% for e = 1:nEdges
-% 	n1 = edgeEnds(e,1);
-% 	n2 = edgeEnds(e,2);
-% 	
-% 	% Incoming
-% 	%  n1
-% 	z = sum(msg_i(1:nStates(n1),e));
-% 	if z > 0
-% 		msg_i(1:nStates(n1),e) = msg_i(1:nStates(n1),e) ./ z;
-% 	else
-% 		msg_i(1:nStates(n1),e) = 1 / nStates(n1);
-% 	end
-% 	%  n2
-% 	z = sum(msg_i(1:nStates(n2),e+nEdges));
-% 	if z > 0
-% 		msg_i(1:nStates(n2),e+nEdges) = msg_i(1:nStates(n2),e+nEdges) ./ z;
-% 	else
-% 		msg_i(1:nStates(n2),e+nEdges) = 1 / nStates(n2);
-% 	end
-% 
-% 	% Outgoing
-% 	%  n1
-% 	z = sum(msg_o(1:nStates(n1),e));
-% 	if z > 0
-% 		msg_o(1:nStates(n1),e) = msg_o(1:nStates(n1),e) ./ z;
-% 	else
-% 		msg_o(1:nStates(n1),e) = 1 / nStates(n1);
-% 	end
-% 	%  n2
-% 	z = sum(msg_o(1:nStates(n2),e+nEdges));
-% 	if z > 0
-% 		msg_o(1:nStates(n2),e+nEdges) = msg_o(1:nStates(n2),e+nEdges) ./ z;
-% 	else
-% 		msg_o(1:nStates(n2),e+nEdges) = 1 / nStates(n2);
-% 	end
-% end
 
 if i == edgeStruct.maxIter
 	fprintf('CountBP did not converge after %d iterations\n',edgeStruct.maxIter);

@@ -48,7 +48,7 @@ else
 	maxStates = max(nStates);
 
 	% Compute messages
-	[bel,imsg,omsg] = UGM_CountBP(nodePot,edgePot,nodeCount,edgeCount,auxCount,edgeStruct,momentum,convTol,0);
+	[bel,imsg,omsg] = UGM_SeqBP(nodePot,edgePot,nodeCount,edgeCount,auxCount,edgeStruct,momentum,convTol,0);
 	nodeBel = bel';
 	return
 
