@@ -309,7 +309,6 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 	
 	if(iter == maxIter)
 		printf("CountBP did not converge after %d iterations\n",maxIter);
-	
 	printf("Stopped after %d iterations\n",iter);
 	
 	/* TEMP */

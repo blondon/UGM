@@ -63,7 +63,7 @@ for i = 1:edgeStruct.maxIter
 			else
 				newm = pot_ij * temp;
 			end
-			% Might get NaN or Inf values due to 0*log(0)
+			% Might get NaN or Inf values
 			newm(~isfinite(newm)) = 0;
 			
 			% Safe normalize
@@ -95,3 +95,5 @@ end
 if i == edgeStruct.maxIter
 	fprintf('TRBP did not converge\n');
 end
+% fprintf('TRBP stopped after %d iterations\n',i);
+

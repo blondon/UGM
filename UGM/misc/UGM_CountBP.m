@@ -8,15 +8,26 @@ nStates = double(edgeStruct.nStates);
 % Initialize
 msg_i = zeros(maxState,nEdges*2);
 msg_o = zeros(maxState,nEdges*2);
+exp_i = zeros(nEdges*2,1);
+exp_o = zeros(nEdges*2,1);
 for e = 1:nEdges
 	n1 = edgeEnds(e,1);
 	n2 = edgeEnds(e,2);
+	% Init messages
 	msg_i(1:nStates(n1),e) = 1/nStates(n1); % Message e -> n1
 	msg_i(1:nStates(n2),e+nEdges) = 1/nStates(n2); % Message e -> n2
 	msg_o(1:nStates(n1),e) = 1/nStates(n1); % Message n1 -> e
 	msg_o(1:nStates(n2),e+nEdges) = 1/nStates(n2); % Message n2 -> e
 	edgePot(1:nStates(n1),1:nStates(n2),e) = edgePot(1:nStates(n1),1:nStates(n2),e).^(1/edgeCount(e));
+	% Init exponents
+	q = (1 - nodeCount(n1)) / length(UGM_getEdges(n1,edgeStruct));
+	exp_i(e) = edgeCount(e) / (edgeCount(e) - q + 1);
+	exp_o(e) = 1 / (edgeCount(e) - q + 1);
+	q = (1 - nodeCount(n2)) / length(UGM_getEdges(n2,edgeStruct));
+	exp_i(e+nEdges) = edgeCount(e) / (edgeCount(e) - q + 1);
+	exp_o(e+nEdges) = 1 / (edgeCount(e) - q + 1);
 end
+% Init old messages
 old_msg_i = msg_i;
 old_msg_o = msg_o;
 
@@ -73,16 +84,10 @@ for i = 1:edgeStruct.maxIter
 		n1 = edgeEnds(e,1);
 		n2 = edgeEnds(e,2);
 		
-		% exponent variables
-		q1 = (1 - nodeCount(n1)) / length(UGM_getEdges(n1,edgeStruct));
-		q2 = (1 - nodeCount(n2)) / length(UGM_getEdges(n2,edgeStruct));
-		d1 = edgeCount(e) - q1 + 1;
-		d2 = edgeCount(e) - q2 + 1;
-		
 		% Incoming
 		%  n1
-		newm = tmp_i(1:nStates(n1),e).^(edgeCount(e)/d1) .* ...
-			   tmp_o(1:nStates(n1),e).^((q1-edgeCount(e))/d1);
+		newm = tmp_i(1:nStates(n1),e).^exp_i(e) .* ...
+			   tmp_o(1:nStates(n1),e).^(exp_o(e)-1);
 		newm(~isfinite(newm)) = 0;
 		z = sum(newm);
 		if z > 0
@@ -92,8 +97,8 @@ for i = 1:edgeStruct.maxIter
 		end
 		msg_i(1:nStates(n1),e) = newm;
 		%  n2
-		newm = tmp_i(1:nStates(n2),e+nEdges).^(edgeCount(e)/d2) .* ...
-			   tmp_o(1:nStates(n2),e+nEdges).^((q2-edgeCount(e))/d2);
+		newm = tmp_i(1:nStates(n2),e+nEdges).^exp_i(e+nEdges) .* ...
+			   tmp_o(1:nStates(n2),e+nEdges).^(exp_o(e+nEdges)-1);
 		newm(~isfinite(newm)) = 0;
 		z = sum(newm);
 		if z > 0
@@ -105,8 +110,8 @@ for i = 1:edgeStruct.maxIter
 
 		% Outgoing
 		%  n1
-		newm = tmp_i(1:nStates(n1),e).^((q1-1)/d1) .* ...
-			   tmp_o(1:nStates(n1),e).^(1/d1);
+		newm = tmp_i(1:nStates(n1),e).^(exp_i(e)-1) .* ...
+			   tmp_o(1:nStates(n1),e).^exp_o(e);
 		newm(~isfinite(newm)) = 0;
 		z = sum(newm);
 		if z > 0
@@ -116,8 +121,8 @@ for i = 1:edgeStruct.maxIter
 		end
 		msg_o(1:nStates(n1),e) = newm;
 		%  n2
-		newm = tmp_i(1:nStates(n2),e+nEdges).^((q2-1)/d2) .* ...
-			   tmp_o(1:nStates(n2),e+nEdges).^(1/d2);
+		newm = tmp_i(1:nStates(n2),e+nEdges).^(exp_i(e+nEdges)-1) .* ...
+			   tmp_o(1:nStates(n2),e+nEdges).^exp_o(e+nEdges);
 		newm(~isfinite(newm)) = 0;
 		z = sum(newm);
 		if z > 0
@@ -135,6 +140,9 @@ for i = 1:edgeStruct.maxIter
 	end
 	
 	% Check convergence
+	fprintf('sum-abs-diff = %f, max-abs-diff = %f\n', ...
+		sum([abs(msg_i(:)-old_msg_i(:));abs(msg_o(:)-old_msg_o(:))]), ...
+		max([abs(msg_i(:)-old_msg_i(:));abs(msg_o(:)-old_msg_o(:))]));
 	if all(abs(msg_i(:)-old_msg_i(:)) < convTol) && all(abs(msg_o(:)-old_msg_o(:)) < convTol)
 		break
 	end
@@ -147,6 +155,45 @@ for i = 1:edgeStruct.maxIter
 	old_msg_i = msg_i;
 	old_msg_o = msg_o;
 end
+
+% % Normalize messages on the way out
+% for e = 1:nEdges
+% 	n1 = edgeEnds(e,1);
+% 	n2 = edgeEnds(e,2);
+% 	
+% 	% Incoming
+% 	%  n1
+% 	z = sum(msg_i(1:nStates(n1),e));
+% 	if z > 0
+% 		msg_i(1:nStates(n1),e) = msg_i(1:nStates(n1),e) ./ z;
+% 	else
+% 		msg_i(1:nStates(n1),e) = 1 / nStates(n1);
+% 	end
+% 	%  n2
+% 	z = sum(msg_i(1:nStates(n2),e+nEdges));
+% 	if z > 0
+% 		msg_i(1:nStates(n2),e+nEdges) = msg_i(1:nStates(n2),e+nEdges) ./ z;
+% 	else
+% 		msg_i(1:nStates(n2),e+nEdges) = 1 / nStates(n2);
+% 	end
+% 
+% 	% Outgoing
+% 	%  n1
+% 	z = sum(msg_o(1:nStates(n1),e));
+% 	if z > 0
+% 		msg_o(1:nStates(n1),e) = msg_o(1:nStates(n1),e) ./ z;
+% 	else
+% 		msg_o(1:nStates(n1),e) = 1 / nStates(n1);
+% 	end
+% 	%  n2
+% 	z = sum(msg_o(1:nStates(n2),e+nEdges));
+% 	if z > 0
+% 		msg_o(1:nStates(n2),e+nEdges) = msg_o(1:nStates(n2),e+nEdges) ./ z;
+% 	else
+% 		msg_o(1:nStates(n2),e+nEdges) = 1 / nStates(n2);
+% 	end
+% end
+
 if i == edgeStruct.maxIter
 	fprintf('CountBP did not converge after %d iterations\n',edgeStruct.maxIter);
 end

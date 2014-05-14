@@ -43,10 +43,12 @@ else
 
 	% Compute messages
 	[msg_i,msg_o] = UGM_CountBP(nodePot,edgePot,nodeCount,edgeCount,edgeStruct,momentum,convTol,0);
-%     [~,~,~,~,msg_i,msg_o] = UGM_Infer_CountBPC(...
+%     [~,~,~,~,msgi,msgo] = UGM_Infer_CountBPC(...
 % 		nodePot,edgePot,nodeCount,edgeCount,...
 % 		edgeStruct.edgeEnds,edgeStruct.nStates,edgeStruct.V,edgeStruct.E,...
 % 		int32(edgeStruct.maxIter),momentum,convTol);
+% 	new_msg = UGM_TRBP(nodePot,edgePot,edgeStruct,0,edgeStruct.edgeDist);
+
 
 	% Compute nodeBel
 	nodeBel = zeros(nNodes,maxState);
