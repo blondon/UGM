@@ -17,7 +17,7 @@ end
 if isfield(edgeStruct,'convTol')
 	convTol = edgeStruct.convTol;
 else
-	convTol = 1e-4;
+	convTol = 1e-10;
 end
 
 % Momentum, for damping
@@ -35,17 +35,21 @@ if edgeStruct.useMex
 else
 	%% Non-mex version
 
-	nNodes = edgeStruct.nNodes;
-	nEdges = edgeStruct.nEdges;
-	edgeEnds = edgeStruct.edgeEnds;
-	nStates = edgeStruct.nStates;
-	maxStates = max(nStates);
+	nNodes = double(edgeStruct.nNodes);
+	nEdges = double(edgeStruct.nEdges);
+	edgeEnds = double(edgeStruct.edgeEnds);
+	nStates = double(edgeStruct.nStates);
+	maxState = max(nStates);
 
 	% Compute messages
 	[msg_i,msg_o] = UGM_CountBP(nodePot,edgePot,nodeCount,edgeCount,edgeStruct,momentum,convTol,0);
+%     [~,~,~,~,msg_i,msg_o] = UGM_Infer_CountBPC(...
+% 		nodePot,edgePot,nodeCount,edgeCount,...
+% 		edgeStruct.edgeEnds,edgeStruct.nStates,edgeStruct.V,edgeStruct.E,...
+% 		int32(edgeStruct.maxIter),momentum,convTol);
 
 	% Compute nodeBel
-	nodeBel = zeros(nNodes,maxStates);
+	nodeBel = zeros(nNodes,maxState);
 	for n = 1:nNodes
 		edges = UGM_getEdges(n,edgeStruct);
 		prod_of_msgs = nodePot(n,1:nStates(n))';
@@ -65,15 +69,12 @@ else
 			nodeBel(n,1:nStates(n)) = prod_of_msgs' ./ Z;
 		end
 	end
-% 	if any(~isfinite(nodeBel(:)))
-% 		1
-% 	end
 	% Clamp to [0,1] (just in case)
 	nodeBel(nodeBel<0) = 0; nodeBel(nodeBel>1) = 1;
 
 	if nargout > 1
 		% Compute edge beliefs
-		edgeBel = zeros(maxStates,maxStates,nEdges);
+		edgeBel = zeros(maxState,maxState,nEdges);
 		for e = 1:nEdges
 			n1 = edgeEnds(e,1);
 			n2 = edgeEnds(e,2);
@@ -90,9 +91,6 @@ else
 			end
 		end
 	end
-% 	if any(~isfinite(edgeBel(:)))
-% 		1
-% 	end
 	% Clamp to [0,1] (just in case)
 	edgeBel(edgeBel<0) = 0; edgeBel(edgeBel>1) = 1;
 

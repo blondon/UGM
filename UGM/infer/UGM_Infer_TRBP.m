@@ -23,9 +23,7 @@ else
 	[nNodes,maxState] = size(nodePot);
 	nEdges = size(edgePot,3);
 	edgeEnds = edgeStruct.edgeEnds;
-	V = edgeStruct.V;
-	E = edgeStruct.E;
-	nStates = edgeStruct.nStates;
+	nStates = double(edgeStruct.nStates);
 
 	maximize = 0;
 	new_msg = UGM_TRBP(nodePot,edgePot,edgeStruct,maximize,mu);
@@ -34,9 +32,8 @@ else
 	nodeBel = zeros(nNodes,maxState);
 	for n = 1:nNodes
 		% nodeBel = nodePot * (product of exponentiated messages)
-		edges = E(V(n):V(n+1)-1);
 		prod_of_msgs = nodePot(n,1:nStates(n))';
-		for e = edges(:)'
+		for e = UGM_getEdges(n,edgeStruct)
 			if n == edgeEnds(e,2)
 				prod_of_msgs = prod_of_msgs .* new_msg(1:nStates(n),e).^mu(e);
 			else
@@ -52,9 +49,6 @@ else
 			nodeBel(n,1:nStates(n)) = prod_of_msgs' ./ Z;
 		end
 	end
-% 	if any(~isfinite(nodeBel(:)))
-% 		1
-% 	end
 	% Clamp to [0,1] (just in case)
 	nodeBel(nodeBel<0) = 0; nodeBel(nodeBel>1) = 1;
 
@@ -66,9 +60,8 @@ else
 			n2 = edgeEnds(e,2);
 
 			% temp1 = nodePot by all messages to n1 except from n2
-			edges = E(V(n1):V(n1+1)-1);
 			temp1 = nodePot(n1,1:nStates(n1))';
-			for e2 = edges(:)'
+			for e2 = UGM_getEdges(n1,edgeStruct)
 				if n1 == edgeEnds(e2,2)
 					incoming = new_msg(1:nStates(n1),e2);
 				else
@@ -82,9 +75,8 @@ else
 			end
 
 			% temp2 = nodePot by all messages to n2 except from n1
-			edges = E(V(n2):V(n2+1)-1);
 			temp2 = nodePot(n2,1:nStates(n2))';
-			for e2 = edges(:)'
+			for e2 = UGM_getEdges(n2,edgeStruct)
 				if n2 == edgeEnds(e2,2)
 					incoming = new_msg(1:nStates(n2),e2);
 				else
@@ -111,9 +103,6 @@ else
 			end
 		end
 	end
-% 	if any(~isfinite(edgeBel(:)))
-% 		1
-% 	end
 	% Clamp to [0,1] (just in case)
 	edgeBel(edgeBel<0) = 0; edgeBel(edgeBel>1) = 1;
 
@@ -125,7 +114,7 @@ else
 		nodeBel = nodeBel+eps;
 		edgeBel = edgeBel+eps;
 		for n = 1:nNodes
-			edges = E(V(n):V(n+1)-1);
+			edges = UGM_getEdges(n,edgeStruct);
 			nb = nodeBel(n,1:nStates(n));
 			np = nodePot(n,1:nStates(n));
 

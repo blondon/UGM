@@ -7,7 +7,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 	/* Variables */
 	int n,s,e,e2,n1,n2,neigh,Vind,Vind2,s1,s2,idx,
 		nNodes,nEdges,maxState,dims[3],nMessages,
-		iter,maxIter,nNbrs,
+		iter,maxIter,notConverged,nNbrs,
 		*edgeEnds,*nStates,*V,*E,*y;
 	
 	double *nodePot,*edgePot,*nodeCount,*edgeCount,
@@ -55,7 +55,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 	edgeBel = mxGetPr(plhs[1]);
 	logZ = mxGetPr(plhs[2]);
 	H = mxGetPr(plhs[3]);
-	
+
 	/* Local copy of edgePot^(1/edgeCount) */
 	powEdgePot = mxCalloc(maxState*maxState*nEdges,sizeof(double));
 	for (e = 0; e < nEdges; e++)
@@ -108,11 +108,11 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 			/* Incoming */
 			for (s1 = 0; s1 < nStates[n1]; s1++) {
 				tmp_i[s1+maxState*e] = 0.0;
-				for (s2 = 0; s2 < nStates[n1]; s2++)
+				for (s2 = 0; s2 < nStates[n2]; s2++)
 					tmp_i[s1+maxState*e] += powEdgePot[s1+maxState*(s2+maxState*e)]
 										  * msg_o[s2+maxState*(e+nEdges)];
 			}
-			for (s2 = 0; s2 < nStates[n1]; s2++) {
+			for (s2 = 0; s2 < nStates[n2]; s2++) {
 				tmp_i[s2+maxState*(e+nEdges)] = 0.0;
 				for (s1 = 0; s1 < nStates[n1]; s1++)
 					tmp_i[s2+maxState*(e+nEdges)] += powEdgePot[s1+maxState*(s2+maxState*e)]
@@ -178,7 +178,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 							 );
 				z += msg_i[idx];
 			}
-			if (z != 0.0) /* Normalize */
+			if (z > 0.0) /* Normalize */
 			{
 				for (s = 0; s < nStates[n1]; s++)
 					msg_i[s+maxState*e] = msg_i[s+maxState*e] / z;
@@ -200,7 +200,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 							 );
 				z += msg_i[idx];
 			}
-			if (z != 0.0) /* Normalize */
+			if (z > 0.0) /* Normalize */
 			{
 				for (s = 0; s < nStates[n2]; s++)
 					msg_i[s+maxState*(e+nEdges)] = msg_i[s+maxState*(e+nEdges)] / z;
@@ -223,7 +223,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 							 );
 				z += msg_o[idx];
 			}
-			if (z != 0.0) /* Normalize */
+			if (z > 0.0) /* Normalize */
 			{
 				for (s = 0; s < nStates[n1]; s++)
 					msg_o[s+maxState*e] = msg_o[s+maxState*e] / z;
@@ -245,7 +245,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 							 );
 				z += msg_o[idx];
 			}
-			if (z != 0.0) /* Normalize */
+			if (z > 0.0) /* Normalize */
 			{
 				for (s = 0; s < nStates[n2]; s++)
 					msg_o[s+maxState*(e+nEdges)] = msg_o[s+maxState*(e+nEdges)] / z;
@@ -275,6 +275,23 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 		}
 	
 		/* Check convergence */
+		notConverged = 0;
+		for (s = 0; s < maxState; s++) {
+			for (e = 0; e < nEdges*2; e++) {
+				idx = s+maxState*e;
+				if (absDif(msg_i[idx],old_msg_i[idx]) >= convTol)
+					notConverged++;
+				if (absDif(msg_o[idx],old_msg_o[idx]) >= convTol)
+					notConverged++;
+				old_msg_i[idx] = msg_i[idx];
+				old_msg_o[idx] = msg_o[idx];
+			}
+		}
+		if (notConverged == 0) {
+			iter++;
+			break;
+		}
+		/* Sum-abs-diff convergence criteria is not consistent with non-mex version.
 		sumAbsDiff = 0.0;
 		for (idx = 0; idx < nMessages; idx++) {
 			sumAbsDiff += absDif(msg_i[idx],old_msg_i[idx]);
@@ -286,14 +303,26 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 			iter++;
 			break;
 		}
+		*/
 	}
 	
 	
 	if(iter == maxIter)
 		printf("CountBP did not converge after %d iterations\n",maxIter);
-	/*
+	
 	printf("Stopped after %d iterations\n",iter);
-	*/
+	
+	/* TEMP */
+	plhs[4] = mxCreateDoubleMatrix(maxState,nEdges*2,mxREAL);
+	plhs[5] = mxCreateDoubleMatrix(maxState,nEdges*2,mxREAL);
+	double *imsg,*omsg;
+	imsg = mxGetPr(plhs[4]);
+	omsg = mxGetPr(plhs[5]);
+	for (idx = 0; idx < nMessages; idx++) {
+		imsg[idx] = msg_i[idx];
+		omsg[idx] = msg_o[idx];
+	}
+	
 	
 	/* Compute nodeBel */
 	for (n = 0; n < nNodes; n++)

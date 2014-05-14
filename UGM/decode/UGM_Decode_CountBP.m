@@ -17,7 +17,7 @@ end
 if isfield(edgeStruct,'convTol')
 	convTol = edgeStruct.convTol;
 else
-	convTol = 1e-4;
+	convTol = 1e-10;
 end
 
 % Momentum, for damping

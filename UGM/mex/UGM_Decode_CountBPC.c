@@ -7,7 +7,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 	/* Variables */
 	int n,s,e,e2,n1,n2,neigh,Vind,Vind2,s1,s2,idx,
 		nNodes,nEdges,maxState,nMessages,
-		iter,maxIter,nNbrs,
+		iter,maxIter,notConverged,nNbrs,
 		*edgeEnds,*nStates,*V,*E,*y;
 	
 	double *nodePot,*edgePot,*nodeCount,*edgeCount,
@@ -98,13 +98,13 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 			/* Incoming */
 			for (s1 = 0; s1 < nStates[n1]; s1++) {
 				tmp_i[s1+maxState*e] = 0.0;
-				for (s2 = 0; s2 < nStates[n1]; s2++) {
+				for (s2 = 0; s2 < nStates[n2]; s2++) {
 					z = powEdgePot[s1+maxState*(s2+maxState*e)] * msg_o[s2+maxState*(e+nEdges)];
 					if (tmp_i[s1+maxState*e] < z)
 						tmp_i[s1+maxState*e] = z;
 				}
 			}
-			for (s2 = 0; s2 < nStates[n1]; s2++) {
+			for (s2 = 0; s2 < nStates[n2]; s2++) {
 				tmp_i[s2+maxState*(e+nEdges)] = 0.0;
 				for (s1 = 0; s1 < nStates[n1]; s1++) {
 					z = powEdgePot[s1+maxState*(s2+maxState*e)] * msg_o[s1+maxState*e];
@@ -269,6 +269,23 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 		}
 	
 		/* Check convergence */
+		notConverged = 0;
+		for (s = 0; s < maxState; s++) {
+			for (e = 0; e < nEdges*2; e++) {
+				idx = s+maxState*e;
+				if (absDif(msg_i[idx],old_msg_i[idx]) >= convTol)
+					notConverged++;
+				if (absDif(msg_o[idx],old_msg_o[idx]) >= convTol)
+					notConverged++;
+				old_msg_i[idx] = msg_i[idx];
+				old_msg_o[idx] = msg_o[idx];
+			}
+		}
+		if (notConverged == 0) {
+			iter++;
+			break;
+		}
+		/* Sum-abs-diff convergence criteria is not consistent with non-mex version.
 		sumAbsDiff = 0.0;
 		for (idx = 0; idx < nMessages; idx++) {
 			sumAbsDiff += absDif(msg_i[idx],old_msg_i[idx]);
@@ -280,12 +297,12 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 			iter++;
 			break;
 		}
+		*/
 	}
 	
 	/*
 	if(iter == maxIter)
 		printf("CountBP did not converge after %d iterations\n",maxIter);
-	/*
 	printf("Stopped after %d iterations\n",iter);
 	*/
 	

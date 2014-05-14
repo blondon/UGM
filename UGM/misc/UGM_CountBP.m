@@ -23,7 +23,7 @@ old_msg_o = msg_o;
 % Main loop
 for i = 1:edgeStruct.maxIter
 	% Temp messages
-	tmp_i = zeros(maxState,nNodes);
+	tmp_i = zeros(maxState,nEdges*2);
 	tmp_o = zeros(maxState,nEdges*2);
 	for e = 1:nEdges
 		n1 = edgeEnds(e,1);
@@ -87,6 +87,8 @@ for i = 1:edgeStruct.maxIter
 		z = sum(newm);
 		if z > 0
 			newm = newm ./ z;
+% 		else
+% 			newm = 1 / nStates(n1);
 		end
 		msg_i(1:nStates(n1),e) = newm;
 		%  n2
@@ -96,6 +98,8 @@ for i = 1:edgeStruct.maxIter
 		z = sum(newm);
 		if z > 0
 			newm = newm ./ z;
+% 		else
+% 			newm = 1 / nStates(n2);
 		end
 		msg_i(1:nStates(n2),e+nEdges) = newm;
 
@@ -107,6 +111,8 @@ for i = 1:edgeStruct.maxIter
 		z = sum(newm);
 		if z > 0
 			newm = newm ./ z;
+% 		else
+% 			newm = 1 / nStates(n1);
 		end
 		msg_o(1:nStates(n1),e) = newm;
 		%  n2
@@ -116,15 +122,11 @@ for i = 1:edgeStruct.maxIter
 		z = sum(newm);
 		if z > 0
 			newm = newm ./ z;
+% 		else
+% 			newm = 1 / nStates(n2);
 		end
 		msg_o(1:nStates(n2),e+nEdges) = newm;
 	end
-	
-% 	% Check for NaNs
-% 	[min(msg_i(:)) max(msg_i(:)) min(msg_o(:)) max(msg_o(:))]
-% 	if any(isnan(msg_i(:))) || any(isnan(msg_o(:)))
-% 		error('Found NaN values\n')
-% 	end
 
 	% Damping
 	if momentum < 1
@@ -133,15 +135,19 @@ for i = 1:edgeStruct.maxIter
 	end
 	
 	% Check convergence
-	if (abs(msg_i(:)-old_msg_i(:)) + abs(msg_o(:)-old_msg_o(:))) < convTol
+	if all(abs(msg_i(:)-old_msg_i(:)) < convTol) && all(abs(msg_o(:)-old_msg_o(:)) < convTol)
 		break
 	end
+% 	% Sum-abs-diff criteria not consistent with mex version
+% 	if (abs(msg_i(:)-old_msg_i(:)) + abs(msg_o(:)-old_msg_o(:))) < convTol
+% 		break
+% 	end
 	
-	% Swap old/new outgoing messages
+	% Update old messages
 	old_msg_i = msg_i;
 	old_msg_o = msg_o;
 end
 if i == edgeStruct.maxIter
 	fprintf('CountBP did not converge after %d iterations\n',edgeStruct.maxIter);
 end
-% fprintf('CountBP stopped after %d iterations\n',i);
+fprintf('CountBP stopped after %d iterations\n',i);

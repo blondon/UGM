@@ -25,10 +25,10 @@ double absDif(double a, double b)
  
 double zeroIfNaN(double x)
 {
-	if (mxIsNaN(x) || mxIsInf(x))
+	if (mxIsFinite(x))
 	{
-		return 0.0;
+		return x;
 	}
-	return x;
+	return 0.0;
 }
  
