@@ -23,7 +23,6 @@ end
 
 tolCon = 1e-8;
 tolValid = 1e-8;
-tolConvex = 1e-8;
 
 % Compute target counting numbers
 if tgt == 1
@@ -111,26 +110,7 @@ end
 A = sparse(I,J,V,nCnt,nVar);
 b = -ones(nCnt,1) * kappa;
 
-Aeq = [];
-beq = [];
-I = zeros(nNodes+2*nEdges,1);
-J = zeros(nNodes+2*nEdges,1);
-V = zeros(nNodes+2*nEdges,1);
-i = 0;
-for n = 1:nNodes
-	i = i + 1;
-	I(i) = n;
-	J(i) = n;
-	V(i) = 1;
-	for e = UGM_getEdges(n,edgeStruct)
-		i = i + 1;
-		I(i) = n;
-		J(i) = nNodes + e;
-		V(i) = 1;
-	end
-end
-Aeq = sparse(I,J,V,nNodes,nVar);
-beq = kappa * ones(nNodes,1);
+[Aeq,beq] = variableValid(edgeStruct,nVar,kappa);
 
 lb = [-inf(nCnt,1) ; zeros(nAux,1)];
 ub = [inf(nCnt,1) ; inf(nAux,1)];
@@ -209,26 +189,7 @@ end
 A = sparse(I,J,V,nCnt,nVar);
 b = -ones(nCnt,1) * kappa;
 
-Aeq = [];
-beq = [];
-I = zeros(nNodes+2*nEdges,1);
-J = zeros(nNodes+2*nEdges,1);
-V = zeros(nNodes+2*nEdges,1);
-i = 0;
-for n = 1:nNodes
-	i = i + 1;
-	I(i) = n;
-	J(i) = n;
-	V(i) = 1;
-	for e = UGM_getEdges(n,edgeStruct)
-		i = i + 1;
-		I(i) = n;
-		J(i) = nNodes + e;
-		V(i) = 1;
-	end
-end
-Aeq = sparse(I,J,V,nNodes,nVar);
-beq = kappa * ones(nNodes,1);
+[Aeq,beq] = variableValid(edgeStruct,nVar,kappa);
 
 lb = [-inf(nCnt,1) ; zeros(nAux,1) ; zeros(nSlack,1)];
 ub = [inf(nCnt,1) ; inf(nAux,1) ; (kappa-minKappa)*ones(nSlack,1)];
@@ -255,7 +216,7 @@ else
 	fprintf('LB constraints satisfied\n');
 end
 
-% Variable-validity constraints
+% Variable-validity
 satisfied = 1;
 maxViolation = 0;
 for n = 1:edgeStruct.nNodes
@@ -278,6 +239,25 @@ else
 	fprintf('Solution is variable-valid\n');
 end
 
+% Factor-validity
+satisfied = 1;
+maxViolation = 0;
+for e = 1:edgeStruct.nEdges
+	val = edgeCount(e);
+	if abs(val-kappa) > tolValid
+		violation = abs(val-kappa) - tolValid;
+		if maxViolation < violation
+			maxViolation = violation;
+		end
+		satisfied = 0;
+	end
+end
+if ~satisfied
+	fprintf('Solution is not factor-valid; max violation: %f\n',maxViolation);
+else
+	fprintf('Solution is factor-valid\n');
+end
+
 % Convexity
 convexity = kappa;
 if ~isempty(slack)
@@ -285,40 +265,47 @@ if ~isempty(slack)
 end
 fprintf('Solution is (%f-strongly) convex\n',convexity);
 
-% % Convexity constraints
-% satisfied = 1;
-% maxViolation = 0;
-% for n = 1:nNodes
-% 	val = nodeCount(n);
-% 	for e = UGM_getEdges(n,edgeStruct)
-% 		if n == edgeStruct.edgeEnds(e,1)
-% 			val = val + auxCount(e);
-% 		else
-% 			val = val + auxCount(e+nEdges);
-% 		end
-% 	end
-% 	if val < kappa-tolConvex
-% 		violation = kappa - tolConvex - val;
-% 		%fprintf('Node %d count exceeded convexity tolerance %f by %f\n',n,tolConvex,violation);
-% 		if maxViolation < violation
-% 			maxViolation = violation;
-% 		end
-% 		satisfied = 0;
-% 	end
-% end
-% for e = 1:nEdges
-% 	val = edgeCount(e) - auxCount(e) - auxCount(e+nEdges);
-% 	if val < kappa-tolConvex
-% 		violation = kappa - tolConvex - val;
-% 		%fprintf('Edge %d count exceeded convexity tolerance %f by %f\n',e,tolConvex,violation);
-% 		if maxViolation < violation
-% 			maxViolation = violation;
-% 		end
-% 		satisfied = 0;
-% 	end
-% end
-% if ~satisfied
-% 	fprintf('Solution is not (%f-strongly) convex; max violation: %f\n',kappa,maxViolation);
-% else
-% 	fprintf('Solution is (%f-strongly) convex\n',kappa);
-% end
+
+%% Variable-validity constraints
+function [Aeq,beq] = variableValid(edgeStruct,nVar,kappa)
+
+nNodes = double(edgeStruct.nNodes);
+nEdges = double(edgeStruct.nEdges);
+I = zeros(nNodes+2*nEdges,1);
+J = zeros(nNodes+2*nEdges,1);
+V = zeros(nNodes+2*nEdges,1);
+i = 0;
+for n = 1:nNodes
+	i = i + 1;
+	I(i) = n;
+	J(i) = n;
+	V(i) = 1;
+	for e = UGM_getEdges(n,edgeStruct)
+		i = i + 1;
+		I(i) = n;
+		J(i) = nNodes + e;
+		V(i) = 1;
+	end
+end
+Aeq = sparse(I,J,V,nNodes,nVar);
+beq = kappa * ones(nNodes,1);
+
+
+%% Factor-validity constraints
+function [Aeq,beq] = factorValid(edgeStruct,nVar,kappa)
+
+nNodes = double(edgeStruct.nNodes);
+nEdges = double(edgeStruct.nEdges);
+I = zeros(nEdges,1);
+J = zeros(nEdges,1);
+V = zeros(nEdges,1);
+for e = 1:nEdges
+	I(e) = e;
+	J(e) = nNodes + e;
+	V(e) = 1;
+end
+Aeq = sparse(I,J,V,nEdges,nVar);
+beq = kappa * ones(nEdges,1);
+
+
+
