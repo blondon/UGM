@@ -42,12 +42,15 @@ else
 	maxState = max(nStates);
 
 	% Compute messages
-	[imsg,omsg] = UGM_CountBP(nodePot,edgePot,nodeCount,edgeCount,edgeStruct,momentum,convTol,0);
+	[msg] = UGM_CountBP_new(nodePot,edgePot,nodeCount,edgeCount,edgeStruct,momentum,convTol,0);
+% 	[imsg2,omsg2] = UGM_CountBP(nodePot,edgePot,nodeCount,edgeCount,edgeStruct,momentum,convTol,0);
 %     [~,~,~,~,msg_i,msg_o] = UGM_Infer_CountBPC(...
 % 		nodePot,edgePot,nodeCount,edgeCount,...
 % 		edgeStruct.edgeEnds,edgeStruct.nStates,edgeStruct.V,edgeStruct.E,...
 % 		int32(edgeStruct.maxIter),momentum,convTol);
 % 	new_msg = UGM_TRBP(nodePot,edgePot,edgeStruct,0,edgeStruct.edgeDist);
+	[sum(abs(imsg1(:)-imsg2(:))) sum(abs(omsg1(:)-omsg2(:)))]
+	imsg = imsg1; omsg = omsg1;
 	
 	% Compute nodeBel
 	nodeBel = zeros(nNodes,maxState);
