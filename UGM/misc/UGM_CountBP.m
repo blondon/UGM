@@ -1,162 +1,125 @@
-function [msg_i,msg_o] = UGM_CountBP(nodePot,edgePot,nodeCount,edgeCount,edgeStruct,momentum,convTol,maximize)
+function [imsg,omsg] = UGM_CountBP_new(nodePot,edgePot,nodeCount,edgeCount,edgeStruct,momentum,convTol,maximize)
 
-[nNodes,maxState] = size(nodePot);
+[nNodes,nState] = size(nodePot);
 nEdges = size(edgePot,3);
 edgeEnds = edgeStruct.edgeEnds;
-nStates = double(edgeStruct.nStates);
 
-% Initialize
-msg_i = zeros(maxState,nEdges*2);
-msg_o = zeros(maxState,nEdges*2);
-exp_i = zeros(nEdges*2,1);
-exp_o = zeros(nEdges*2,1);
+% For simplicity, all variables must have same number of states.
+assert(all(edgeStruct.nStates == nState), 'UGM_CountBP: All variables must have same number of states.')
+
+% Precompute exponents/potentials
+iexp = zeros(nEdges*2,1);
+oexp = zeros(nEdges*2,1);
 for e = 1:nEdges
 	n1 = edgeEnds(e,1);
 	n2 = edgeEnds(e,2);
-	% Init messages
-	msg_i(1:nStates(n1),e) = 1/nStates(n1); % Message e -> n1
-	msg_i(1:nStates(n2),e+nEdges) = 1/nStates(n2); % Message e -> n2
-	msg_o(1:nStates(n1),e) = 1/nStates(n1); % Message n1 -> e
-	msg_o(1:nStates(n2),e+nEdges) = 1/nStates(n2); % Message n2 -> e
-	edgePot(1:nStates(n1),1:nStates(n2),e) = edgePot(1:nStates(n1),1:nStates(n2),e).^(1/edgeCount(e));
-	% Init exponents
 	q = (1 - nodeCount(n1)) / length(UGM_getEdges(n1,edgeStruct));
-	exp_i(e) = edgeCount(e) / (edgeCount(e) - q + 1);
-	exp_o(e) = 1 / (edgeCount(e) - q + 1);
+	iexp(e) = edgeCount(e) / (edgeCount(e) - q + 1);
+	oexp(e) = 1 / (edgeCount(e) - q + 1);
 	q = (1 - nodeCount(n2)) / length(UGM_getEdges(n2,edgeStruct));
-	exp_i(e+nEdges) = edgeCount(e) / (edgeCount(e) - q + 1);
-	exp_o(e+nEdges) = 1 / (edgeCount(e) - q + 1);
+	iexp(e+nEdges) = edgeCount(e) / (edgeCount(e) - q + 1);
+	oexp(e+nEdges) = 1 / (edgeCount(e) - q + 1);
+	% Raise edge potentials to power (1/edgeCount)
+	edgePot(:,:,e) = edgePot(:,:,e).^(1/edgeCount(e));
 end
-% Init old messages
-old_msg_i = msg_i;
-old_msg_o = msg_o;
+
+% Init messages
+imsg = (1/nState) * ones(nState,nEdges*2); % incoming: e -> n
+omsg = (1/nState) * ones(nState,nEdges*2); % outgoing: n -> e
+imsg_old = imsg;
+omsg_old = omsg;
+itmp = zeros(nState,nEdges*2);
+otmp = zeros(nState,nEdges*2);
 
 % Main loop
 for i = 1:edgeStruct.maxIter
-	% Temp messages
-	tmp_i = zeros(maxState,nEdges*2);
-	tmp_o = zeros(maxState,nEdges*2);
-	for e = 1:nEdges
-		n1 = edgeEnds(e,1);
-		n2 = edgeEnds(e,2);
-		
-		% Incoming
-		pot = edgePot(1:nStates(n1),1:nStates(n2),e);
-		if maximize
-			% Max-product
-			tmp_i(1:nStates(n1),e) = max(pot.*repmat(msg_o(1:nStates(n2),e+nEdges)',nStates(n1),1), [], 2);
-			tmp_i(1:nStates(n2),e+nEdges) = max(pot'.*repmat(msg_o(1:nStates(n1),e)',nStates(n2),1), [], 2);
-		else
-			% Sum-product
-			tmp_i(1:nStates(n1),e) = pot * msg_o(1:nStates(n2),e+nEdges);
-			tmp_i(1:nStates(n2),e+nEdges) = pot' * msg_o(1:nStates(n1),e);
-		end
-		
-		% Outgoing
-		%  n1
-		tmp = nodePot(n1,1:nStates(n1))';
-		for e1 = UGM_getEdges(n1,edgeStruct)
-			if e1 ~= e
-				if n1 == edgeEnds(e1,1)
-					tmp = tmp .* msg_i(1:nStates(n1),e1);
-				else
-					tmp = tmp .* msg_i(1:nStates(n1),e1+nEdges);
-				end
-			end
-		end
-		tmp_o(1:nStates(n1),e) = tmp;
-		%  n2
-		tmp = nodePot(n2,1:nStates(n2))';
-		for e2 = UGM_getEdges(n2,edgeStruct)
-			if e2 ~= e
-				if n2 == edgeEnds(e2,1)
-					tmp = tmp .* msg_i(1:nStates(n2),e2);
-				else
-					tmp = tmp .* msg_i(1:nStates(n2),e2+nEdges);
-				end
-			end
-		end
-		tmp_o(1:nStates(n2),e+nEdges) = tmp;
-	end
-	
-	% New messages
-	for e = 1:nEdges
-		n1 = edgeEnds(e,1);
-		n2 = edgeEnds(e,2);
-		
-		% Incoming
-		%  n1
-		newm = tmp_i(1:nStates(n1),e).^exp_i(e) .* ...
-			   tmp_o(1:nStates(n1),e).^(exp_o(e)-1);
-		newm(~isfinite(newm)) = 0;
-		z = sum(newm);
-		if z > 0
-			newm = newm ./ z;
-% 		else
-% 			newm = 1 / nStates(n1);
-		end
-		msg_i(1:nStates(n1),e) = newm;
-		%  n2
-		newm = tmp_i(1:nStates(n2),e+nEdges).^exp_i(e+nEdges) .* ...
-			   tmp_o(1:nStates(n2),e+nEdges).^(exp_o(e+nEdges)-1);
-		newm(~isfinite(newm)) = 0;
-		z = sum(newm);
-		if z > 0
-			newm = newm ./ z;
-% 		else
-% 			newm = 1 / nStates(n2);
-		end
-		msg_i(1:nStates(n2),e+nEdges) = newm;
 
-		% Outgoing
-		%  n1
-		newm = tmp_i(1:nStates(n1),e).^(exp_i(e)-1) .* ...
-			   tmp_o(1:nStates(n1),e).^exp_o(e);
-		newm(~isfinite(newm)) = 0;
-		z = sum(newm);
-		if z > 0
-			newm = newm ./ z;
-% 		else
-% 			newm = 1 / nStates(n1);
+	% Iterate over nodes, in sequence
+	for n = 1:nNodes
+		
+		% Neighbors of n
+		neighbs = UGM_getEdges(n,edgeStruct);
+		
+		% Update temp variables
+		for e = neighbs
+			% Incoming
+			if n == edgeEnds(e,1)
+				eidx = e;
+				pot_ij = edgePot(:,:,e);
+				msg = omsg(:,e+nEdges);
+			else
+				eidx = e + nEdges;
+				pot_ij = edgePot(:,:,e)';
+				msg = omsg(:,e);
+			end
+			if maximize
+				itmp(:,eidx) = max(pot_ij .* repmat(msg',nState,1), [], 2);
+			else
+				itmp(:,eidx) = pot_ij * msg;
+			end
+			% Outgoing
+			prod = nodePot(n,:)';
+			for e_ = neighbs
+				if e_ ~= e
+					if n == edgeEnds(e_,1)
+						prod = prod .* imsg(:,e_);
+					else
+						prod = prod .* imsg(:,e_+nEdges);
+					end
+				end
+			end
+			otmp(:,eidx) = prod;
 		end
-		msg_o(1:nStates(n1),e) = newm;
-		%  n2
-		newm = tmp_i(1:nStates(n2),e+nEdges).^(exp_i(e+nEdges)-1) .* ...
-			   tmp_o(1:nStates(n2),e+nEdges).^exp_o(e+nEdges);
-		newm(~isfinite(newm)) = 0;
-		z = sum(newm);
-		if z > 0
-			newm = newm ./ z;
-% 		else
-% 			newm = 1 / nStates(n2);
+		
+		% Update messages
+		for e = neighbs
+			if n == edgeEnds(e,1)
+				eidx = e;
+			else
+				eidx = e + nEdges;
+			end
+			imsg(:,eidx) = normalizeMessage(itmp(:,eidx).^iexp(eidx) .* otmp(:,eidx).^(oexp(eidx)-1));
+			omsg(:,eidx) = normalizeMessage(itmp(:,eidx).^(iexp(eidx)-1) .* otmp(:,eidx).^oexp(eidx));
 		end
-		msg_o(1:nStates(n2),e+nEdges) = newm;
+		
 	end
 
 	% Damping
 	if momentum < 1
-		msg_i = old_msg_i.^(1-momentum) .* msg_i.^momentum;
-		msg_o = old_msg_o.^(1-momentum) .* msg_o.^momentum;
+		imsg = imsg_old.^(1-momentum) .* imsg.^momentum;
+		omsg = omsg_old.^(1-momentum) .* omsg.^momentum;
 	end
 	
 	% Check convergence
 	fprintf('sum-abs-diff = %f, max-abs-diff = %f\n', ...
-		sum([abs(msg_i(:)-old_msg_i(:));abs(msg_o(:)-old_msg_o(:))]), ...
-		max([abs(msg_i(:)-old_msg_i(:));abs(msg_o(:)-old_msg_o(:))]));
-	if all(abs(msg_i(:)-old_msg_i(:)) < convTol) && all(abs(msg_o(:)-old_msg_o(:)) < convTol)
+		sum([abs(imsg(:)-imsg_old(:));abs(omsg(:)-omsg_old(:))]), ...
+		max([abs(imsg(:)-imsg_old(:));abs(omsg(:)-omsg_old(:))]));
+	if all(abs(imsg(:)-imsg_old(:)) < convTol) && all(abs(omsg(:)-omsg_old(:)) < convTol)
 		break
 	end
-% 	% Sum-abs-diff criteria not consistent with mex version
-% 	if (abs(msg_i(:)-old_msg_i(:)) + abs(msg_o(:)-old_msg_o(:))) < convTol
-% 		break
-% 	end
 	
 	% Update old messages
-	old_msg_i = msg_i;
-	old_msg_o = msg_o;
+	imsg_old = imsg;
+	omsg_old = omsg;
+	
 end
 
 if i == edgeStruct.maxIter
 	fprintf('CountBP did not converge after %d iterations\n',edgeStruct.maxIter);
 end
 fprintf('CountBP stopped after %d iterations\n',i);
+
+end % END UGM_CountBP
+
+
+%% Normalize a message while removing Inf and NaN
+function msg = normalizeMessage(msg)
+
+msg(~isfinite(msg)) = 0;
+z = sum(msg);
+if z > 0
+	msg = msg ./ z;
+end
+
+end % END normalizeMessage
+

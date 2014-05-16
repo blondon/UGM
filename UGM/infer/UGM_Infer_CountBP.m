@@ -43,11 +43,6 @@ else
 
 	% Compute messages
 	[imsg,omsg] = UGM_CountBP(nodePot,edgePot,nodeCount,edgeCount,edgeStruct,momentum,convTol,0);
-%     [~,~,~,~,msg_i,msg_o] = UGM_Infer_CountBPC(...
-% 		nodePot,edgePot,nodeCount,edgeCount,...
-% 		edgeStruct.edgeEnds,edgeStruct.nStates,edgeStruct.V,edgeStruct.E,...
-% 		int32(edgeStruct.maxIter),momentum,convTol);
-% 	new_msg = UGM_TRBP(nodePot,edgePot,edgeStruct,0,edgeStruct.edgeDist);
 	
 	% Compute nodeBel
 	nodeBel = zeros(nNodes,maxState);
@@ -91,9 +86,9 @@ else
 				edgeBel(1:nStates(n1),1:nStates(n2),e) = eb ./ Z;
 			end
 		end
+		% Clamp to [0,1] (just in case)
+		edgeBel(edgeBel<0) = 0; edgeBel(edgeBel>1) = 1;
 	end
-	% Clamp to [0,1] (just in case)
-	edgeBel(edgeBel<0) = 0; edgeBel(edgeBel>1) = 1;
 
 	if nargout > 2
 		% Compute Bethe free energy
