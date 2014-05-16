@@ -23,9 +23,11 @@ for e = 1:nEdges
 	edgePot(:,:,e) = log(edgePot(:,:,e)).*(1/edgeCount(e));
 end
 
+nodePot = log(nodePot);
+
 % Init messages
-imsg = (1/nState) * ones(nState,nEdges*2); % incoming: e -> n
-omsg = (1/nState) * ones(nState,nEdges*2); % outgoing: n -> e
+imsg = (1/nState) * zeros(nState,nEdges*2); % incoming: e -> n
+omsg = (1/nState) * zeros(nState,nEdges*2); % outgoing: n -> e
 imsg_old = imsg;
 omsg_old = omsg;
 itmp = zeros(nState,nEdges*2);
