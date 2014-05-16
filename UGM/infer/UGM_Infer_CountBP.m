@@ -43,8 +43,8 @@ else
     
 	% Compute messages
 	[imsg,omsg] = UGM_CountBP_schwing(nodePot,edgePot,nodeCount,edgeCount,edgeStruct,momentum,convTol,0);
-	
-	% Compute nodeBel
+
+    % Compute nodeBel
 	nodeBel = zeros(nNodes,maxState);
 	for n = 1:nNodes
         
@@ -79,10 +79,8 @@ else
 		for e = 1:nEdges
 			n1 = edgeEnds(e,1);
 			n2 = edgeEnds(e,2);
-% 			eb = edgePot(1:nStates(n1),1:nStates(n2),e).^(1/edgeCount(e)) .* ...
-% 				 (omsg(1:nStates(n1),e) * omsg(1:nStates(n2),e+nEdges)');
-			eb = edgePot(1:nStates(n1),1:nStates(n2),e) .* ...
-				 (omsg(1:nStates(n1),e) * omsg(1:nStates(n2),e+nEdges)');
+			eb = edgePot(1:nStates(n1),1:nStates(n2),e).^(1/edgeCount(e)) .* ...
+				 (omsg(1:nStates(n1),e) * omsg(1:nStates(n2),e+nEdges)').^(1/edgeCount(e));
 			eb(~isfinite(eb)) = 0;
 			
 			% Safe normalize
