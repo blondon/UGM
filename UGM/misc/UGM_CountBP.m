@@ -1,4 +1,4 @@
-function [imsg,omsg] = UGM_CountBP_schwing(nodePot,edgePot,nodeCount,edgeCount,edgeStruct,momentum,convTol,maximize)
+function [imsg,omsg] = UGM_CountBP(nodePot,edgePot,nodeCount,edgeCount,edgeStruct,convTol,maximize)
 
 [nNodes,nState] = size(nodePot);
 nEdges = size(edgePot,3);
@@ -35,12 +35,11 @@ for i = 1:edgeStruct.maxIter
 		% Neighbors of n
 		neighbs = UGM_getEdges(n,edgeStruct);
 		
-		% Update temp variables
+		% Incoming
+		% log(imsg) = log(
+		%	( (\sum_{x_e \ x_n} pot_e(x_e) \prod_{n' : n' \in e\n} omsg_{n',e})^{1/c_e} )^c_e
+		% )
 		for e = neighbs
-			% Incoming
-			% log(imsg) = log(
-			%	( (\sum_{x_e \ x_n} pot_e(x_e) \prod_{n' : n' \in e\n} omsg_{n',e})^{1/c_e} )^c_e
-			% )
 			if n == edgeEnds(e,1)
 				eidx = e;
 				pot_ij = edgePot(:,:,e);
@@ -51,47 +50,37 @@ for i = 1:edgeStruct.maxIter
 				msg = omsg(:,e);
 			end
 			if maximize
-				itmp(:,eidx) = max((pot_ij + repmat(msg',nState,1)) / edgeCount(e), [], 2);
+				tmp = max((pot_ij + repmat(msg',nState,1)) / edgeCount(e), [], 2);
 			else
-				itmp(:,eidx) = logsumexp(bsxfun(@plus, pot_ij, msg')' / edgeCount(e))';
+				tmp = logsumexp(bsxfun(@plus, pot_ij, msg')' / edgeCount(e))';
 			end
-			itmp(:,eidx) = itmp(:,eidx) * edgeCount(e);
-			% Outgoing
-			% log(omsg) = log( (\prod_{e' : n \in e'} imsg_{e',n})^{c_e / \hat c_n} / imsg_{e,n} )
-			logProd = nodePot(n,:)';
-			for e_ = neighbs
-				if n == edgeEnds(e_,1)
-					logProd = logProd + imsg(:,e_);
-				else
-					logProd = logProd + imsg(:,e_+nEdges);
-				end
-			end
-			otmp(:,eidx) = logProd * (edgeCount(e)/auxNodeCount(n)) - itmp(:,eidx);
+			imsg(:,eidx) = logNormalize(tmp * edgeCount(e));
 		end
 		
-		% Update messages
+		% Outgoing
+		% log(omsg) = log( (\prod_{e' : n \in e'} imsg_{e',n})^{c_e / \hat c_n} / imsg_{e,n} )
+		logProd = nodePot(n,:)';
 		for e = neighbs
 			if n == edgeEnds(e,1)
-				eidx = e;
+				logProd = logProd + imsg(:,e);
 			else
-				eidx = e + nEdges;
+				logProd = logProd + imsg(:,e+nEdges);
 			end
-			imsg(:,eidx) = logNormalizeMessage(itmp(:,eidx));
-			omsg(:,eidx) = logNormalizeMessage(otmp(:,eidx));
+		end
+		for e = neighbs
+			if n == edgeEnds(e,1)
+				omsg(:,e) = logNormalize(logProd .* (edgeCount(e)/auxNodeCount(n)) - imsg(:,e));
+			else
+				omsg(:,e+nEdges) = logNormalize(logProd .* (edgeCount(e)/auxNodeCount(n)) - imsg(:,e+nEdges));
+			end
 		end
 		
-	end
-	
-	% Damping
-	if momentum < 1
-		imsg = imsg_old.*(1-momentum) + imsg.*momentum;
-		omsg = omsg_old.*(1-momentum) + omsg.*momentum;
 	end
 	
 	% Check convergence
-	fprintf('sum-abs-diff = %f, max-abs-diff = %f\n', ...
-		sum([abs(imsg(:)-imsg_old(:));abs(omsg(:)-omsg_old(:))]), ...
-		max([abs(imsg(:)-imsg_old(:));abs(omsg(:)-omsg_old(:))]));
+% 	fprintf('sum-abs-diff = %f, max-abs-diff = %f\n', ...
+% 		sum([abs(imsg(:)-imsg_old(:));abs(omsg(:)-omsg_old(:))]), ...
+% 		max([abs(imsg(:)-imsg_old(:));abs(omsg(:)-omsg_old(:))]));
 	if all(abs(imsg(:)-imsg_old(:)) < convTol) && all(abs(omsg(:)-omsg_old(:)) < convTol)
 		break
 	end
@@ -116,7 +105,7 @@ end % END UGM_CountBP
 
 
 %% "normalize" log-form message
-function msg = logNormalizeMessage(msg)
+function msg = logNormalize(msg)
 
 msg = msg - max(msg);
 

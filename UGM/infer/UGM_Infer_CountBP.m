@@ -20,18 +20,11 @@ else
 	convTol = 1e-10;
 end
 
-% Momentum, for damping
-if isfield(edgeStruct,'momentum')
-	momentum = edgeStruct.momentum;
-else
-	momentum = 1;
-end
-
 if edgeStruct.useMex
     [nodeBel,edgeBel,logZ,H] = UGM_Infer_CountBPC(...
 		nodePot,edgePot,nodeCount,edgeCount,...
 		edgeStruct.edgeEnds,edgeStruct.nStates,edgeStruct.V,edgeStruct.E,...
-		int32(edgeStruct.maxIter),momentum,convTol);
+		int32(edgeStruct.maxIter),convTol);
 else
 	%% Non-mex version
 
@@ -42,7 +35,12 @@ else
 	maxState = max(nStates);
     
 	% Compute messages
-	[imsg,omsg] = UGM_CountBP(nodePot,edgePot,nodeCount,edgeCount,edgeStruct,momentum,convTol,0);
+	[imsg,omsg] = UGM_CountBP(nodePot,edgePot,nodeCount,edgeCount,edgeStruct,convTol,0);
+%     [~,~,~,~,imsg2,omsg2] = UGM_Infer_CountBPC(...
+% 		nodePot,edgePot,nodeCount,edgeCount,...
+% 		edgeStruct.edgeEnds,edgeStruct.nStates,edgeStruct.V,edgeStruct.E,...
+% 		int32(edgeStruct.maxIter),convTol);
+% 	[sum(abs(imsg(:)-imsg2(:))) sum(abs(omsg(:)-omsg2(:)))]
 
     % Compute nodeBel
 	nodeBel = zeros(nNodes,maxState);
