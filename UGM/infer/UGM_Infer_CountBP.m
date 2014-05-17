@@ -42,26 +42,19 @@ else
 	maxState = max(nStates);
     
 	% Compute messages
-	[imsg,omsg] = UGM_CountBP_schwing(nodePot,edgePot,nodeCount,edgeCount,edgeStruct,momentum,convTol,0);
+	[imsg,omsg] = UGM_CountBP(nodePot,edgePot,nodeCount,edgeCount,edgeStruct,momentum,convTol,0);
 
     % Compute nodeBel
 	nodeBel = zeros(nNodes,maxState);
 	for n = 1:nNodes
-        
-		edges = UGM_getEdges(n,edgeStruct);
-
-%         hatNodeCount = nodeCount(n) + sum(edgeCount(edges));
-        
 		prod_of_msgs = nodePot(n,1:nStates(n))';
-		for e = edges
-%             messageExp = hatNodeCount / edgeStruct.edgeCount(e);
+		for e = UGM_getEdges(n,edgeStruct);
 			if n == edgeEnds(e,1)
 				prod_of_msgs = prod_of_msgs .* imsg(1:nStates(n),e);
 			else
 				prod_of_msgs = prod_of_msgs .* imsg(1:nStates(n),e+nEdges);
 			end
-        end
-	    
+		end
 		% Safe normalize
 		Z = sum(prod_of_msgs);
 		if Z == 0
@@ -82,7 +75,6 @@ else
 			eb = edgePot(1:nStates(n1),1:nStates(n2),e).^(1/edgeCount(e)) .* ...
 				 (omsg(1:nStates(n1),e) * omsg(1:nStates(n2),e+nEdges)').^(1/edgeCount(e));
 			eb(~isfinite(eb)) = 0;
-			
 			% Safe normalize
 			Z = sum(eb(:));
 			if Z == 0

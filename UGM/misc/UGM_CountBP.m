@@ -1,39 +1,34 @@
-function [imsg,omsg] = UGM_CountBP_new(nodePot,edgePot,nodeCount,edgeCount,edgeStruct,momentum,convTol,maximize)
+function [imsg,omsg] = UGM_CountBP_schwing(nodePot,edgePot,nodeCount,edgeCount,edgeStruct,momentum,convTol,maximize)
 
 [nNodes,nState] = size(nodePot);
 nEdges = size(edgePot,3);
 edgeEnds = edgeStruct.edgeEnds;
 
-% For simplicity, all variables must have same number of states.
+% For simplicity, all variables must have same number of states
 assert(all(edgeStruct.nStates == nState), 'UGM_CountBP: All variables must have same number of states.')
 
-% Precompute exponents/potentials
-iexp = zeros(nEdges*2,1);
-oexp = zeros(nEdges*2,1);
-for e = 1:nEdges
-	n1 = edgeEnds(e,1);
-	n2 = edgeEnds(e,2);
-	q = (1 - nodeCount(n1)) / length(UGM_getEdges(n1,edgeStruct));
-	iexp(e) = edgeCount(e) / (edgeCount(e) - q + 1);
-	oexp(e) = 1 / (edgeCount(e) - q + 1);
-	q = (1 - nodeCount(n2)) / length(UGM_getEdges(n2,edgeStruct));
-	iexp(e+nEdges) = edgeCount(e) / (edgeCount(e) - q + 1);
-	oexp(e+nEdges) = 1 / (edgeCount(e) - q + 1);
-	% Raise edge potentials to power (1/edgeCount)
-	edgePot(:,:,e) = edgePot(:,:,e).^(1/edgeCount(e));
-end
+% Convert potentials to log space
+nodePot = log(nodePot);
+edgePot = log(edgePot);
 
 % Init messages
-imsg = (1/nState) * ones(nState,nEdges*2); % incoming: e -> n
-omsg = (1/nState) * ones(nState,nEdges*2); % outgoing: n -> e
+imsg = zeros(nState,nEdges*2); % incoming: e -> n
+omsg = zeros(nState,nEdges*2); % outgoing: n -> e
+itmp = zeros(nState,nEdges*2); % incoming: e -> n
+otmp = zeros(nState,nEdges*2); % outgoing: n -> e
 imsg_old = imsg;
 omsg_old = omsg;
-itmp = zeros(nState,nEdges*2);
-otmp = zeros(nState,nEdges*2);
+
+% Precompute aux counting numbers
+auxNodeCount = zeros(nNodes,1);
+for n = 1:nNodes
+	neighbs = UGM_getEdges(n,edgeStruct);
+	auxNodeCount(n) = nodeCount(n) + sum(edgeCount(neighbs));
+end
 
 % Main loop
 for i = 1:edgeStruct.maxIter
-
+	
 	% Iterate over nodes, in sequence
 	for n = 1:nNodes
 		
@@ -43,6 +38,9 @@ for i = 1:edgeStruct.maxIter
 		% Update temp variables
 		for e = neighbs
 			% Incoming
+			% log(imsg) = log(
+			%	( (\sum_{x_e \ x_n} pot_e(x_e) \prod_{n' : n' \in e\n} omsg_{n',e})^{1/c_e} )^c_e
+			% )
 			if n == edgeEnds(e,1)
 				eidx = e;
 				pot_ij = edgePot(:,:,e);
@@ -53,22 +51,22 @@ for i = 1:edgeStruct.maxIter
 				msg = omsg(:,e);
 			end
 			if maximize
-				itmp(:,eidx) = max(pot_ij .* repmat(msg',nState,1), [], 2);
+				itmp(:,eidx) = max((pot_ij + repmat(msg',nState,1)) / edgeCount(e), [], 2);
 			else
-				itmp(:,eidx) = pot_ij * msg;
+				itmp(:,eidx) = logsumexp(bsxfun(@plus, pot_ij, msg')' / edgeCount(e))';
 			end
+			itmp(:,eidx) = itmp(:,eidx) * edgeCount(e);
 			% Outgoing
-			prod = nodePot(n,:)';
+			% log(omsg) = log( (\prod_{e' : n \in e'} imsg_{e',n})^{c_e / \hat c_n} / imsg_{e,n} )
+			logProd = nodePot(n,:)';
 			for e_ = neighbs
-				if e_ ~= e
-					if n == edgeEnds(e_,1)
-						prod = prod .* imsg(:,e_);
-					else
-						prod = prod .* imsg(:,e_+nEdges);
-					end
+				if n == edgeEnds(e_,1)
+					logProd = logProd + imsg(:,e_);
+				else
+					logProd = logProd + imsg(:,e_+nEdges);
 				end
 			end
-			otmp(:,eidx) = prod;
+			otmp(:,eidx) = logProd * (edgeCount(e)/auxNodeCount(n)) - itmp(:,eidx);
 		end
 		
 		% Update messages
@@ -78,16 +76,16 @@ for i = 1:edgeStruct.maxIter
 			else
 				eidx = e + nEdges;
 			end
-			imsg(:,eidx) = normalizeMessage(itmp(:,eidx).^iexp(eidx) .* otmp(:,eidx).^(oexp(eidx)-1));
-			omsg(:,eidx) = normalizeMessage(itmp(:,eidx).^(iexp(eidx)-1) .* otmp(:,eidx).^oexp(eidx));
+			imsg(:,eidx) = logNormalizeMessage(itmp(:,eidx));
+			omsg(:,eidx) = logNormalizeMessage(otmp(:,eidx));
 		end
 		
 	end
-
+	
 	% Damping
 	if momentum < 1
-		imsg = imsg_old.^(1-momentum) .* imsg.^momentum;
-		omsg = omsg_old.^(1-momentum) .* omsg.^momentum;
+		imsg = imsg_old.*(1-momentum) + imsg.*momentum;
+		omsg = omsg_old.*(1-momentum) + omsg.*momentum;
 	end
 	
 	% Check convergence
@@ -109,17 +107,28 @@ if i == edgeStruct.maxIter
 end
 fprintf('CountBP stopped after %d iterations\n',i);
 
+% Convert to exponential space
+imsg = exp(imsg);
+omsg = exp(omsg);
+
 end % END UGM_CountBP
 
 
-%% Normalize a message while removing Inf and NaN
-function msg = normalizeMessage(msg)
 
-msg(~isfinite(msg)) = 0;
-z = sum(msg);
-if z > 0
-	msg = msg ./ z;
+%% "normalize" log-form message
+function msg = logNormalizeMessage(msg)
+
+msg = msg - max(msg);
+
 end
 
-end % END normalizeMessage
 
+
+%% compute log(sum(exp(x)))
+function y = logsumexp(x)
+
+maxval = max(x);
+
+y = bsxfun(@plus, log(sum(exp(bsxfun(@minus, x, maxval)))), maxval);
+
+end
