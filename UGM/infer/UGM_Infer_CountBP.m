@@ -43,6 +43,7 @@ else
 
 	% Compute messages
 	[imsg,omsg] = UGM_CountBP_log(nodePot,edgePot,nodeCount,edgeCount,edgeStruct,momentum,convTol,0);
+	imsg = exp(imsg); omsg = exp(omsg);
 	
 	% Compute nodeBel
 	nodeBel = zeros(nNodes,maxState);
