@@ -1,4 +1,4 @@
-function [imsg,omsg] = UGM_CountBP_log(nodePot,edgePot,nodeCount,edgeCount,edgeStruct,momentum,convTol,maximize)
+function [imsg,omsg] = UGM_CountBP_schwing(nodePot,edgePot,nodeCount,edgeCount,edgeStruct,momentum,convTol,maximize)
 
 [nNodes,nState] = size(nodePot);
 nEdges = size(edgePot,3);
@@ -7,33 +7,16 @@ edgeEnds = edgeStruct.edgeEnds;
 % For simplicity, all variables must have same number of states.
 assert(all(edgeStruct.nStates == nState), 'UGM_CountBP: All variables must have same number of states.')
 
-% Precompute exponents/potentials
-iexp = zeros(nEdges*2,1);
-oexp = zeros(nEdges*2,1);
-for e = 1:nEdges
-    n1 = edgeEnds(e,1);
-    n2 = edgeEnds(e,2);
-    q = (1 - nodeCount(n1)) / length(UGM_getEdges(n1,edgeStruct));
-    iexp(e) = edgeCount(e) / (edgeCount(e) - q + 1);
-    oexp(e) = 1 / (edgeCount(e) - q + 1);
-    q = (1 - nodeCount(n2)) / length(UGM_getEdges(n2,edgeStruct));
-    iexp(e+nEdges) = edgeCount(e) / (edgeCount(e) - q + 1);
-    oexp(e+nEdges) = 1 / (edgeCount(e) - q + 1);
-    % Raise edge potentials to power (1/edgeCount)
-    edgePot(:,:,e) = log(edgePot(:,:,e)).*(1/edgeCount(e));
-%     edgePot(:,:,e) = log(edgePot(:,:,e));
-end
-
-% nodePot = bsxfun(@times, log(nodePot), nodeCount);
 nodePot = log(nodePot);
+edgePot = log(edgePot);
 
 % Init messages
-imsg = (1/nState) * zeros(nState,nEdges*2); % incoming: e -> n
-omsg = (1/nState) * zeros(nState,nEdges*2); % outgoing: n -> e
+imsg = zeros(nState,nEdges*2); % incoming: e -> n
+omsg = zeros(nState,nEdges*2); % outgoing: n -> e
+itmp = zeros(nState,nEdges*2); % incoming: e -> n
+otmp = zeros(nState,nEdges*2); % outgoing: n -> e
 imsg_old = imsg;
 omsg_old = omsg;
-itmp = zeros(nState,nEdges*2);
-otmp = zeros(nState,nEdges*2);
 
 % Main loop
 for i = 1:edgeStruct.maxIter
@@ -43,6 +26,9 @@ for i = 1:edgeStruct.maxIter
         
         % Neighbors of n
         neighbs = UGM_getEdges(n,edgeStruct);
+        
+        hatNodeCount = nodeCount(n) + sum(edgeCount(neighbs));
+
         
         % Update temp variables
         for e = neighbs
@@ -56,24 +42,23 @@ for i = 1:edgeStruct.maxIter
                 pot_ij = edgePot(:,:,e)';
                 msg = omsg(:,e);
             end
+
+            iexp = 1/edgeCount(e);
             if maximize
-                itmp(:,eidx) = max(pot_ij + repmat(msg',nState,1), [], 2);
+                itmp(:,eidx) = max(iexp*(pot_ij + repmat(msg',nState,1)), [], 2);
             else
-                itmp(:,eidx) = logsumexp(bsxfun(@plus, pot_ij, msg')')';
-                % should be equivalent to log(exp(pot_ij)*exp(msg))
+                itmp(:,eidx) = logsumexp(iexp*bsxfun(@plus, pot_ij, msg')')';
             end
             % Outgoing
             prod = nodePot(n,:)';
             for e_ = neighbs
-                if e_ ~= e
-                    if n == edgeEnds(e_,1)
-                        prod = prod + imsg(:,e_);
-                    else
-                        prod = prod + imsg(:,e_+nEdges);
-                    end
+                if n == edgeEnds(e_,1)
+                    prod = prod + imsg(:,e_);
+                else
+                    prod = prod + imsg(:,e_+nEdges);
                 end
             end
-            otmp(:,eidx) = prod;
+            otmp(:,eidx) = prod * (edgeCount(e)/hatNodeCount) - imsg(:, eidx);
         end
         
         % Update messages
@@ -83,8 +68,8 @@ for i = 1:edgeStruct.maxIter
             else
                 eidx = e + nEdges;
             end
-            imsg(:,eidx) = logNormalizeMessage(itmp(:,eidx).*iexp(eidx) + otmp(:,eidx).*(oexp(eidx)-1));
-            omsg(:,eidx) = logNormalizeMessage(itmp(:,eidx).*(iexp(eidx)-1) + otmp(:,eidx).*oexp(eidx));
+            imsg(:,eidx) = logNormalizeMessage(itmp(:,eidx) * edgeCount(e));
+            omsg(:,eidx) = logNormalizeMessage(otmp(:,eidx));
         end
         
     end
@@ -121,18 +106,6 @@ imsg = exp(imsg);
 omsg = exp(omsg);
 
 end % END UGM_CountBP
-
-
-%% Normalize a message while removing Inf and NaN
-function msg = normalizeMessage(msg)
-
-msg(~isfinite(msg)) = 0;
-z = sum(msg);
-if z > 0
-    msg = msg ./ z;
-end
-
-end % END normalizeMessage
 
 
 

@@ -110,7 +110,7 @@ end
 A = sparse(I,J,V,nCnt,nVar);
 b = -ones(nCnt,1) * kappa;
 
-[Aeq,beq] = variableValid(edgeStruct,nVar,kappa);
+[Aeq,beq] = variableValid(edgeStruct,nVar);
 
 lb = [-inf(nCnt,1) ; zeros(nAux,1)];
 ub = [inf(nCnt,1) ; inf(nAux,1)];
@@ -189,7 +189,7 @@ end
 A = sparse(I,J,V,nCnt,nVar);
 b = -ones(nCnt,1) * kappa;
 
-[Aeq,beq] = variableValid(edgeStruct,nVar,kappa);
+[Aeq,beq] = variableValid(edgeStruct,nVar);
 
 lb = [-inf(nCnt,1) ; zeros(nAux,1) ; zeros(nSlack,1)];
 ub = [inf(nCnt,1) ; inf(nAux,1) ; (kappa-minKappa)*ones(nSlack,1)];
@@ -267,7 +267,7 @@ fprintf('Solution is (%f-strongly) convex\n',convexity);
 
 
 %% Variable-validity constraints
-function [Aeq,beq] = variableValid(edgeStruct,nVar,kappa)
+function [Aeq,beq] = variableValid(edgeStruct,nVar)
 
 nNodes = double(edgeStruct.nNodes);
 nEdges = double(edgeStruct.nEdges);
@@ -288,11 +288,11 @@ for n = 1:nNodes
 	end
 end
 Aeq = sparse(I,J,V,nNodes,nVar);
-beq = kappa * ones(nNodes,1);
+beq = ones(nNodes,1);
 
 
 %% Factor-validity constraints
-function [Aeq,beq] = factorValid(edgeStruct,nVar,kappa)
+function [Aeq,beq] = factorValid(edgeStruct,nVar)
 
 nNodes = double(edgeStruct.nNodes);
 nEdges = double(edgeStruct.nEdges);
@@ -305,7 +305,7 @@ for e = 1:nEdges
 	V(e) = 1;
 end
 Aeq = sparse(I,J,V,nEdges,nVar);
-beq = kappa * ones(nEdges,1);
+beq = ones(nEdges,1);
 
 
 
