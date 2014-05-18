@@ -34,25 +34,27 @@ double zeroIfNaN(double x)
 
 void logNormalize(double *x, int length)
 {
+	int i = 0;
 	double maxval = -INFINITY;
-	for (int i = 0; i < length; i++) {
+	for (i = 0; i < length; i++) {
 		if (maxval < x[i])
 			maxval = x[i];
 	}
-	for (int i = 0; i < length; i++) {
+	for (i = 0; i < length; i++) {
 		x[i] -= maxval;
 	}
 }
 
 double logSumExp(double *x, int length)
 {
+	int i = 0;
 	double maxval = -INFINITY;
-	for (int i = 0; i < length; i++) {
+	for (i = 0; i < length; i++) {
 		if (maxval < x[i])
 			maxval = x[i];
 	}
 	double sum = 0.0;
-	for (int i = 0; i < length; i++) {
+	for (i = 0; i < length; i++) {
 		sum += exp(x[i] - maxval);
 	}
 	return log(sum) + maxval;
