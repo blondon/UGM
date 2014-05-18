@@ -55,7 +55,7 @@ double logSumExp(double *x, int length)
 	for (int i = 0; i < length; i++) {
 		sum += exp(x[i] - maxval);
 	}
-	return log(sum);
+	return log(sum) + maxval;
 }
 
  

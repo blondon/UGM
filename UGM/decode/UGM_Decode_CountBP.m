@@ -33,28 +33,35 @@ if edgeStruct.useMex
 		edgeStruct.edgeEnds,edgeStruct.nStates,edgeStruct.V,edgeStruct.E,...
 		int32(edgeStruct.maxIter),momentum,convTol);
 else
-	nNodes = edgeStruct.nNodes;
-	nEdges = edgeStruct.nEdges;
-	edgeEnds = edgeStruct.edgeEnds;
-	nStates = edgeStruct.nStates;
-	maxStates = max(nStates);
+	%% Non-mex version
 
-	% Compute messages (with max-product)
-	[msg_i,~] = UGM_CountBP(nodePot,edgePot,nodeCount,edgeCount,edgeStruct,momentum,convTol,1);
+	nNodes = double(edgeStruct.nNodes);
+	nEdges = double(edgeStruct.nEdges);
+	edgeEnds = double(edgeStruct.edgeEnds);
+	nStates = double(edgeStruct.nStates);
+	maxState = max(nStates);
+    
+	% Compute messages
+	[imsg,~] = UGM_CountBP(nodePot,edgePot,nodeCount,edgeCount,edgeStruct,convTol,1);
 
-	% Compute nodeBel
-	nodeBel = zeros(nNodes,maxStates);
+    % Compute nodeBel
+	nodeBel = zeros(nNodes,maxState);
 	for n = 1:nNodes
-		edges = UGM_getEdges(n,edgeStruct);
 		prod_of_msgs = nodePot(n,1:nStates(n))';
-		for e = edges
+		for e = UGM_getEdges(n,edgeStruct);
 			if n == edgeEnds(e,1)
-				prod_of_msgs = prod_of_msgs .* msg_i(1:nStates(n),e);
+				prod_of_msgs = prod_of_msgs .* imsg(1:nStates(n),e);
 			else
-				prod_of_msgs = prod_of_msgs .* msg_i(1:nStates(n),e+nEdges);
+				prod_of_msgs = prod_of_msgs .* imsg(1:nStates(n),e+nEdges);
 			end
 		end
-		nodeBel(n,1:nStates(n)) = prod_of_msgs' ./ sum(prod_of_msgs);
+		% Safe normalize
+		Z = sum(prod_of_msgs);
+		if Z == 0
+			nodeBel(n,1:nStates(n)) = 1 / nStates(n);
+		else
+			nodeBel(n,1:nStates(n)) = prod_of_msgs' ./ Z;
+		end
 	end
 end
 

@@ -36,11 +36,6 @@ else
     
 	% Compute messages
 	[imsg,omsg] = UGM_CountBP(nodePot,edgePot,nodeCount,edgeCount,edgeStruct,convTol,0);
-%     [~,~,~,~,imsg2,omsg2] = UGM_Infer_CountBPC(...
-% 		nodePot,edgePot,nodeCount,edgeCount,...
-% 		edgeStruct.edgeEnds,edgeStruct.nStates,edgeStruct.V,edgeStruct.E,...
-% 		int32(edgeStruct.maxIter),convTol);
-% 	[sum(abs(imsg(:)-imsg2(:))) sum(abs(omsg(:)-omsg2(:)))]
 
     % Compute nodeBel
 	nodeBel = zeros(nNodes,maxState);
@@ -70,8 +65,9 @@ else
 		for e = 1:nEdges
 			n1 = edgeEnds(e,1);
 			n2 = edgeEnds(e,2);
-			eb = edgePot(1:nStates(n1),1:nStates(n2),e).^(1/edgeCount(e)) .* ...
-				 (omsg(1:nStates(n1),e) * omsg(1:nStates(n2),e+nEdges)').^(1/edgeCount(e));
+			eb = ( edgePot(1:nStates(n1),1:nStates(n2),e) .* ...
+				   (omsg(1:nStates(n1),e) * omsg(1:nStates(n2),e+nEdges)') ...
+			     ).^(1/edgeCount(e));
 			eb(~isfinite(eb)) = 0;
 			% Safe normalize
 			Z = sum(eb(:));

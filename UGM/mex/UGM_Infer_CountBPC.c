@@ -58,15 +58,16 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 	logNodePot = mxCalloc(nNodes*maxState,sizeof(double));
 	for (n = 0; n < nNodes; n++) {
 		for (s = 0; s < nStates[n]; s++)
-			logNodePot[n+maxState*s] = log(nodePot[n+maxState*s]);
+			logNodePot[n+nNodes*s] = log(nodePot[n+nNodes*s]);
 	}
 	logEdgePot = mxCalloc(maxState*maxState*nEdges,sizeof(double));
 	for (e = 0; e < nEdges; e++) {
 		n1 = edgeEnds[e]-1;
 		n2 = edgeEnds[e+nEdges]-1;
-		for (s1 = 0; s1 < nStates[n1]; s1++)
-			for (s2 = 0; s2 < nStates[n1]; s2++)
+		for (s1 = 0; s1 < nStates[n1]; s1++) {
+			for (s2 = 0; s2 < nStates[n2]; s2++)
 				logEdgePot[s1+maxState*(s2+maxState*e)] = log(edgePot[s1+maxState*(s2+maxState*e)]);
+		}
 	}
 	
 	/* Precompute aux node counts */
@@ -115,38 +116,40 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 		for (n = 0; n < nNodes; n++)
 		{
 			/* Incoming messages */
-			for(Vind = V[n]-1; Vind < V[n+1]-1; Vind++)
+			for (Vind = V[n]-1; Vind < V[n+1]-1; Vind++)
 			{
 				e = E[Vind] - 1;
-				if (n == edgeEnds[e]-1)
+				n1 = edgeEnds[e]-1;
+				n2 = edgeEnds[e+nEdges]-1;
+				if (n == n1)
 				{
-					for (s1 = 0; s1 < nStates[n]; s1++) {
+					for (s1 = 0; s1 < nStates[n1]; s1++) {
 						for (s2 = 0; s2 < nStates[n2]; s2++) {
-							tmp1[s2] = (
+							tmp2[s2] = (
 									logEdgePot[s1+maxState*(s2+maxState*e)]
 								  + omsg[s2+maxState*(e+nEdges)]
 								) / edgeCount[e];
 						}
-						tmp2[s1] = logSumExp(tmp1,nStates[n2]) * edgeCount[e];
+						tmp1[s1] = logSumExp(tmp2,nStates[n2]) * edgeCount[e];
 					}
-					logNormalize(tmp2,nStates[n]);
-					for (s = 0; s < nStates[n]; s++)
-						imsg[s+maxState*e] = tmp2[s];
+					logNormalize(tmp1,nStates[n1]);
+					for (s1 = 0; s1 < nStates[n1]; s1++)
+						imsg[s1+maxState*e] = tmp1[s1];
 				}
 				else
 				{
-					for (s1 = 0; s1 < nStates[n]; s1++) {
-						for (s2 = 0; s2 < nStates[n2]; s2++) {
-							tmp1[s2] = (
-									logEdgePot[s2+maxState*(s1+maxState*e)]
-								  + omsg[s2+maxState*e]
+					for (s2 = 0; s2 < nStates[n2]; s2++) {
+						for (s1 = 0; s1 < nStates[n1]; s1++) {
+							tmp1[s1] = (
+									logEdgePot[s1+maxState*(s2+maxState*e)]
+								  + omsg[s1+maxState*e]
 								) / edgeCount[e];
 						}
-						tmp2[s1] = logSumExp(tmp1,nStates[n2]) * edgeCount[e];
+						tmp2[s2] = logSumExp(tmp1,nStates[n1]) * edgeCount[e];
 					}
-					logNormalize(tmp2,nStates[n]);
-					for (s = 0; s < nStates[n]; s++)
-						imsg[s+maxState*(e+nEdges)] = tmp2[s];
+					logNormalize(tmp2,nStates[n2]);
+					for (s2 = 0; s2 < nStates[n2]; s2++)
+						imsg[s2+maxState*(e+nEdges)] = tmp2[s2];
 				}
 			}
 			
@@ -154,7 +157,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 			for (s = 0; s < nStates[n]; s++)
 			{
 				tmp1[s] = logNodePot[n+nNodes*s];
-				for(Vind = V[n]-1; Vind < V[n+1]-1; Vind++) {
+				for (Vind = V[n]-1; Vind < V[n+1]-1; Vind++) {
 					e = E[Vind] - 1;
 					if (n == edgeEnds[e]-1)
 						tmp1[s] += imsg[s+maxState*e];
@@ -201,9 +204,11 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 		}
 	}
 	
+	/*
 	if(iter == maxIter)
 		printf("CountBP did not converge after %d iterations\n",maxIter);
 	printf("Stopped after %d iterations\n",iter);
+	 */
 	
 	/* Convert to exponential space */
 	for (e = 0; e < nEdges; e++)
@@ -218,17 +223,6 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 			imsg[s+maxState*(e+nEdges)] = exp(imsg[s+maxState*(e+nEdges)]);
 			omsg[s+maxState*(e+nEdges)] = exp(omsg[s+maxState*(e+nEdges)]);
 		}
-	}
-	
-	/* TEMP */
-	plhs[4] = mxCreateDoubleMatrix(maxState,nEdges*2,mxREAL);
-	plhs[5] = mxCreateDoubleMatrix(maxState,nEdges*2,mxREAL);
-	double *msg_i,*msg_o;
-	msg_i = mxGetPr(plhs[4]);
-	msg_o = mxGetPr(plhs[5]);
-	for (idx = 0; idx < nMessages; idx++) {
-		msg_i[idx] = imsg[idx];
-		msg_o[idx] = omsg[idx];
 	}
 	
 	/* Compute nodeBel */
@@ -283,8 +277,9 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 		for (s1 = 0; s1 < nStates[n1]; s1++) {
 			for (s2 = 0; s2 < nStates[n2]; s2++) {
 				edgeBel[s1+maxState*(s2+maxState*e)] = zeroIfNaN(
-					pow(edgePot[s1+maxState*(s2+maxState*e)], 1/edgeCount[e])
-					* omsg[s1+maxState*e] * omsg[s2+maxState*(e+nEdges)]
+					pow(
+						edgePot[s1+maxState*(s2+maxState*e)] * omsg[s1+maxState*e] * omsg[s2+maxState*(e+nEdges)]
+						, 1/edgeCount[e])
 					);
 				z += edgeBel[s1+maxState*(s2+maxState*e)];
 			}

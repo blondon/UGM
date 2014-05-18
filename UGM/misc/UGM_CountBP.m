@@ -14,8 +14,6 @@ edgePot = log(edgePot);
 % Init messages
 imsg = zeros(nState,nEdges*2); % incoming: e -> n
 omsg = zeros(nState,nEdges*2); % outgoing: n -> e
-itmp = zeros(nState,nEdges*2); % incoming: e -> n
-otmp = zeros(nState,nEdges*2); % outgoing: n -> e
 imsg_old = imsg;
 omsg_old = omsg;
 
@@ -50,7 +48,7 @@ for i = 1:edgeStruct.maxIter
 				msg = omsg(:,e);
 			end
 			if maximize
-				tmp = max((pot_ij + repmat(msg',nState,1)) / edgeCount(e), [], 2);
+				tmp = max(bsxfun(@plus, pot_ij, msg') / edgeCount(e), [], 2);
 			else
 				tmp = logsumexp(bsxfun(@plus, pot_ij, msg')' / edgeCount(e))';
 			end
@@ -94,7 +92,7 @@ end
 if i == edgeStruct.maxIter
 	fprintf('CountBP did not converge after %d iterations\n',edgeStruct.maxIter);
 end
-fprintf('CountBP stopped after %d iterations\n',i);
+% fprintf('CountBP stopped after %d iterations\n',i);
 
 % Convert to exponential space
 imsg = exp(imsg);
