@@ -1,23 +1,27 @@
-function [nodeCount,edgeCount,auxCount] = UGM_ConvexBetheCounts(edgeStruct,kappa,minKappa,tgt)
+function [nodeCount,edgeCount,auxCount] = UGM_ConvexBetheCounts(edgeStruct,kappa,minKappa,validity,tgt)
 %
 % Computes the counting numbers for the Bethe approximation.
 %
 % edgeStruct : edge structure
 % kappa : desired modulus of convexity (def: 0)
 % minKappa : minimum modulus of convexity, if first QP fails (def: 0.01)
+% validity : 0 = no validity constraints (def), 1 = variable-valid, 2 = factor-valid
 % tgt : target counting numbers: 1 = Bethe (def), 2 = TRW
 %
 % nodeCount : (nNodes x 1) vector of node counting numbers
 % edgeCount : (nEdges x 1) vector of edge counting numbers
 % auxCount : (2*nEdges x 1) vector of auxiliary counting numbers
 
-if nargin < 2
+if ~exist('kappa','var') || isempty(kappa)
 	kappa = 0;
 end
-if nargin < 3
+if ~exist('minKappa','var') || isempty(minKappa)
 	minKappa = 1e-2;
 end
-if nargin < 4
+if ~exist('validity','var') || isempty(validity)
+	validity = 0;
+end
+if ~exist('tgt','var') || isempty(tgt)
 	tgt = 1;
 end
 
@@ -36,7 +40,7 @@ else
 end
 
 % Try non-slack QP
-[nodeCount,edgeCount,auxCount,~,exitflag] = solveQP(edgeStruct,kappa,tgtCount,tolCon);
+[nodeCount,edgeCount,auxCount,~,exitflag] = solveQP(edgeStruct,kappa,tgtCount,validity,tolCon);
 slack = [];
 
 % Check feasibility
@@ -44,7 +48,7 @@ if exitflag == -2
 	fprintf('QP is infeasible. Trying slackened version with minKappa=%f ...\n',minKappa);
 	
 	% Try slackened QP
-	[nodeCount,edgeCount,auxCount,slack,~,exitflag] = solveSlackQP(edgeStruct,kappa,minKappa,tgtCount,tolCon);
+	[nodeCount,edgeCount,auxCount,slack,~,exitflag] = solveSlackQP(edgeStruct,kappa,minKappa,tgtCount,validity,tolCon);
 	if exitflag == -2
 		fprintf('Slackened QP is infeasible. Try a different value for kappa,minKappa.\n');
 	end
@@ -58,7 +62,7 @@ verifySolution(edgeStruct,kappa,nodeCount,edgeCount,auxCount,slack,tolValid);
 
 
 %% Non-slackened QP
-function [nodeCount,edgeCount,auxCount,fval,exitflag] = solveQP(edgeStruct,kappa,tgtCount,tolCon)
+function [nodeCount,edgeCount,auxCount,fval,exitflag] = solveQP(edgeStruct,kappa,tgtCount,validity,tolCon)
 
 % Dimensions
 nNodes = double(edgeStruct.nNodes);
@@ -110,7 +114,14 @@ end
 A = sparse(I,J,V,nCnt,nVar);
 b = -ones(nCnt,1) * kappa;
 
-[Aeq,beq] = variableValid(edgeStruct,nVar);
+switch(validity)
+	case 1
+		[Aeq,beq] = variableValid(edgeStruct,nVar);
+	case 2
+		[Aeq,beq] = factorValid(edgeStruct,nVar);
+	otherwise
+		Aeq = []; beq = [];
+end
 
 lb = [-inf(nCnt,1) ; zeros(nAux,1)];
 ub = [inf(nCnt,1) ; inf(nAux,1)];
@@ -128,7 +139,7 @@ auxCount = x(nCnt+1:end);
 
 
 %% Slackened QP
-function [nodeCount,edgeCount,auxCount,slack,fval,exitflag] = solveSlackQP(edgeStruct,kappa,minKappa,tgtCount,tolCon)
+function [nodeCount,edgeCount,auxCount,slack,fval,exitflag] = solveSlackQP(edgeStruct,kappa,minKappa,tgtCount,validity,tolCon)
 
 % Dimensions
 nNodes = double(edgeStruct.nNodes);
@@ -189,7 +200,14 @@ end
 A = sparse(I,J,V,nCnt,nVar);
 b = -ones(nCnt,1) * kappa;
 
-[Aeq,beq] = variableValid(edgeStruct,nVar);
+switch(validity)
+	case 1
+		[Aeq,beq] = variableValid(edgeStruct,nVar);
+	case 2
+		[Aeq,beq] = factorValid(edgeStruct,nVar);
+	otherwise
+		Aeq = []; beq = [];
+end
 
 lb = [-inf(nCnt,1) ; zeros(nAux,1) ; zeros(nSlack,1)];
 ub = [inf(nCnt,1) ; inf(nAux,1) ; (kappa-minKappa)*ones(nSlack,1)];
@@ -224,8 +242,8 @@ for n = 1:edgeStruct.nNodes
 	for e = UGM_getEdges(n,edgeStruct)
 		val = val + edgeCount(e);
 	end
-	if abs(val-kappa) > tolValid
-		violation = abs(val-kappa) - tolValid;
+	if abs(val-1) > tolValid
+		violation = abs(val-1) - tolValid;
 		%fprintf('Node %d count exceeded validity tolerance %f by %f\n',n,tolValid,violation);
 		if maxViolation < violation
 			maxViolation = violation;
@@ -244,8 +262,8 @@ satisfied = 1;
 maxViolation = 0;
 for e = 1:edgeStruct.nEdges
 	val = edgeCount(e);
-	if abs(val-kappa) > tolValid
-		violation = abs(val-kappa) - tolValid;
+	if abs(val-1) > tolValid
+		violation = abs(val-1) - tolValid;
 		if maxViolation < violation
 			maxViolation = violation;
 		end
