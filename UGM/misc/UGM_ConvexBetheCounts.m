@@ -79,6 +79,7 @@ I = zeros(nNodes+5*nEdges,1);
 J = zeros(nNodes+5*nEdges,1);
 V = zeros(nNodes+5*nEdges,1);
 c = 0; i = 0;
+% forall v, -(c_v + sum_{e : v in e} a_{v,e}) <= -k
 for n = 1:nNodes
 	c = c + 1;
 	i = i + 1;
@@ -96,6 +97,7 @@ for n = 1:nNodes
 		V(i) = -1;
 	end
 end
+% forall e, -(c_e - sum_{v : v in e} a_{v,e}) <= -k
 for e = 1:nEdges
 	c = c + 1;
 	i = i + 1;
@@ -129,8 +131,7 @@ ub = [inf(nCnt,1) ; inf(nAux,1)];
 % Solve QP
 options = optimset('Algorithm','interior-point-convex',...
 				   'Display','off','TolCon',tolCon);
-% [x,fval,exitflag] = quadprog(H,f,A,b,Aeq,beq,lb,ub,[],options);
-[x,fval,exitflag] = quadprog(H,f,A,b,Aeq,beq,lb,ub,[],options); % no validity constraints
+[x,fval,exitflag] = quadprog(H,f,A,b,Aeq,beq,lb,ub,[],options);
 
 % Output
 nodeCount = x(1:nNodes);
@@ -157,6 +158,7 @@ I = zeros(nCnt + 2*nAux + nSlack,1);
 J = zeros(nCnt + 2*nAux + nSlack,1);
 V = zeros(nCnt + 2*nAux + nSlack,1);
 c = 0; i = 0;
+% forall v, -(c_v + sum_{e : v in e} a_{v,e}) <= -(k - z_v)
 for n = 1:nNodes
 	c = c + 1;
 	i = i + 1;
@@ -178,6 +180,7 @@ for n = 1:nNodes
 	J(i) = nCnt + nAux + n;
 	V(i) = -1;
 end
+% forall e, -(c_e - sum_{v : v in e} a_{v,e}) <= -(k - z_e)
 for e = 1:nEdges
 	c = c + 1;
 	i = i + 1;
@@ -244,7 +247,6 @@ for n = 1:edgeStruct.nNodes
 	end
 	if abs(val-1) > tolValid
 		violation = abs(val-1) - tolValid;
-		%fprintf('Node %d count exceeded validity tolerance %f by %f\n',n,tolValid,violation);
 		if maxViolation < violation
 			maxViolation = violation;
 		end
