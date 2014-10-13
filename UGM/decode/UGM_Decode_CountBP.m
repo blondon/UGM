@@ -20,18 +20,11 @@ else
 	convTol = 1e-10;
 end
 
-% Momentum, for damping
-if isfield(edgeStruct,'momentum')
-	momentum = edgeStruct.momentum;
-else
-	momentum = .9;
-end
-
 if edgeStruct.useMex
     nodeBel = UGM_Decode_CountBPC(...
 		nodePot,edgePot,nodeCount,edgeCount,...
 		edgeStruct.edgeEnds,edgeStruct.nStates,edgeStruct.V,edgeStruct.E,...
-		int32(edgeStruct.maxIter),momentum,convTol);
+		int32(edgeStruct.maxIter),convTol);
 else
 	%% Non-mex version
 

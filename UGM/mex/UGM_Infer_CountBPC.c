@@ -191,9 +191,9 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 			for (e = 0; e < nEdges*2; e++) {
 				idx = s+maxState*e;
 				if (absDif(imsg[idx],imsg_old[idx]) >= convTol)
-					notConverged++;
+					notConverged = 1;
 				if (absDif(omsg[idx],omsg_old[idx]) >= convTol)
-					notConverged++;
+					notConverged = 1;
 				imsg_old[idx] = imsg[idx];
 				omsg_old[idx] = omsg[idx];
 			}

@@ -55,6 +55,7 @@ for i = 1:edgeStruct.maxIter
 			
 			% Compute new message
 			if maximize
+				% These functions don't exist!
 				if edgeStruct.useMex
 					newm = max_mult(pot_ij,temp);
 				else
