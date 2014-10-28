@@ -1,4 +1,4 @@
-function  [nodeLabels] = UGM_Infer_Tree(nodePot, edgePot, edgeStruct)
+function  [nodeLabels] = UGM_Decode_Tree(nodePot, edgePot, edgeStruct)
 % INPUT
 % nodePot(node,class)
 % edgePot(class,class,edge) where e is referenced by V,E (must be the same
