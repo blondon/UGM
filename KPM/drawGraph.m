@@ -123,7 +123,7 @@ status = eval(cmnd);
 if status == 1,  warning('DOT/NEATO not accessible'); end
 
 %  store layout information in layout.dot
-neato = '(''neato -Tdot -Gmaxiter=5000 -Gstart=7 -o'; % -Gstart="regular" -Gregular  
+neato = '(''neato -Tdot -Gmaxiter=5000 -Gstart=7 -o '; % -Gstart="regular" -Gregular  
 cmnd = strcat([shell neato tmpLAYOUT ' ' tmpDOTfile ''')']);   % -x compact
 status = eval(cmnd);                 %  get NEATO to layout
 

@@ -1,13 +1,13 @@
-function  [nodeLabels] = UGM_Decode_Tree(nodePot, edgePot, edgeStruct)
+function  [nodeLabels,nodeBel,messages] = UGM_Decode_Tree(nodePot, edgePot, edgeStruct)
 % INPUT
 % nodePot(node,class)
 % edgePot(class,class,edge) where e is referenced by V,E (must be the same
 % between feature engine and inference engine)
 %
 % OUTPUT
-% nodeBel(node,class) - marginal beliefs
-% edgeBel(class,class,e) - pairwise beliefs
-% logZ - negative of free energy
+% nodeLabels - decoded labels
+% nodeBel(node,class) - max-marginals
+% messages(state,edge) - messages from BP
 %
 % Assumes no ties
 
