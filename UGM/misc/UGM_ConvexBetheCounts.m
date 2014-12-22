@@ -47,7 +47,31 @@ if exitflag == -2
 end
 
 % Convexity
-fprintf('Solution is (%f-strongly) convex\n',kappa);
+nNodes = edgeStruct.nNodes;
+nEdges = edgeStruct.nEdges;
+minKappa = inf;
+for n = 1:nNodes
+	v = nodeCount(n);
+	for e = UGM_getEdges(n,edgeStruct)
+		if n == edgeStruct.edgeEnds(e,1)
+			v = v + auxCount(e);
+		else
+			v = v + auxCount(e+nEdges);
+		end
+	end
+	if minKappa > v
+		minKappa = v;
+	end
+end
+for e = 1:nEdges
+	v = edgeCount(e);
+	v = v + auxCount(e);
+	v = v + auxCount(e+nEdges);
+	if minKappa > v
+		minKappa = v;
+	end
+end
+fprintf('Solution is (%f-strongly) convex\n',minKappa);
 
 % L2 distance^2 to target counts
 fprintf('MSE target counts: %f\n', mean((tgtCount-[nodeCount;edgeCount]).^2));
