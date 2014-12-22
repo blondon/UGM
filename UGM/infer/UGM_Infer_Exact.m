@@ -9,7 +9,9 @@ function  [nodeBel, edgeBel, logZ] = UGM_Infer_Exact(nodePot, edgePot, edgeStruc
 % edgeBel(class,class,e) - pairwise beliefs
 % logZ - negative of free energy
 
-UGM_assert(prod(double(edgeStruct.nStates)) < 50000000,'Brute Force Exact Inference not recommended for models with > 50 000 000 states');
+maxNumStatesExp = 24;
+UGM_assert(prod(double(edgeStruct.nStates)) < 2^maxNumStatesExp,...
+	sprintf('Brute Force Exact Inference not recommended for models with > 2^%d states',maxNumStatesExp));
 
 if edgeStruct.useMex
    [nodeBel,edgeBel,logZ] = UGM_Infer_ExactC(nodePot,edgePot,edgeStruct.edgeEnds,edgeStruct.nStates);

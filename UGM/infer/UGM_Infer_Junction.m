@@ -1,4 +1,4 @@
-function [nodeBel, edgeBel, logZ] = UGM_Infer_Junction(nodePot,edgePot,edgeStruct,ordering)
+function [nodeBel,edgeBel,logZ,cliques] = UGM_Infer_Junction(nodePot,edgePot,edgeStruct,ordering)
 
 debug = 0;
 
@@ -70,7 +70,9 @@ end
 nodePotMissing = ones(nNodes,1);
 edgePotMissing = ones(nEdges,1);
 for c = 1:nCliques
-    fprintf('Clique %d: %s\n',c,sprintf(' %d',cliques{c}));
+	if debug
+		fprintf('Clique %d: %s\n',c,sprintf(' %d',cliques{c}));
+	end
     nodes = cliques{c};
 
     % Initialize clique potentials
@@ -84,7 +86,9 @@ for c = 1:nCliques
     for nodeInd = 1:length(nodes)
         n = nodes(nodeInd);
         if nodePotMissing(n)
-            fprintf('Including node potential for node %d in clique %d\n',n,c);
+			if debug
+				fprintf('Including node potential for node %d in clique %d\n',n,c);
+			end
             nodePotMissing(n) = 0;
 
             ind_sub = ind;
@@ -99,7 +103,9 @@ for c = 1:nCliques
             n1 = edgeEnds(e,1);
             n2 = edgeEnds(e,2);
             if ismember(n1,nodes) && ismember(n2,nodes) && edgePotMissing(e)
-                fprintf('Including edge potential for edge %d-%d in clique %d\n',edgeEnds(e,1),edgeEnds(e,2),c);
+				if debug
+					fprintf('Including edge potential for edge %d-%d in clique %d\n',edgeEnds(e,1),edgeEnds(e,2),c);
+				end
                 edgePotMissing(e) = 0;
 
                 ind_sub = ind;
@@ -114,8 +120,10 @@ for c = 1:nCliques
                 end
             end
         end
-    end
-    fprintf('\n');
+	end
+	if debug
+	    fprintf('\n');
+	end
 end
 if debug
     fprintf('Clique Potentials:\n');
@@ -386,7 +394,7 @@ if c == edgeEnds(edge,1)
 else
     nei = edgeEnds(edge,1);
 end
-fprintf('Sending from %d to %d\n',c,nei);
+% fprintf('Sending from %d to %d\n',c,nei);
 
 % Opposite edge is no longer waiting
 for tmp = V(nei):V(nei+1)-1
