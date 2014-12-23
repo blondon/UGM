@@ -1,10 +1,11 @@
-function [nodeCount,edgeCount,auxCount] = UGM_ConvexBetheCounts(edgeStruct,kappa,tgt)
+function [nodeCount,edgeCount,auxCount] = UGM_ConvexBetheCounts(edgeStruct,kappa,tgt,verbose)
 %
 % Computes the counting numbers for the Bethe approximation.
 %
 % edgeStruct : edge structure
 % kappa : desired modulus of convexity (def: 0)
 % tgt : target counting numbers: 1 = Bethe (def), 2 = TRW
+% verbose : display log? (def: 1)
 %
 % nodeCount : (nNodes x 1) vector of node counting numbers
 % edgeCount : (nEdges x 1) vector of edge counting numbers
@@ -15,6 +16,9 @@ if ~exist('kappa','var') || isempty(kappa)
 end
 if ~exist('tgt','var') || isempty(tgt)
 	tgt = 1;
+end
+if ~exist('verbose','var') || isempty(verbose)
+	verbose = 1;
 end
 
 tolCon = 1e-8;
@@ -37,57 +41,62 @@ slack = [];
 
 % Check feasibility
 if exitflag == -2
-	fprintf('QP is infeasible. Trying slackened version ...\n');
+	if verbose
+		fprintf('QP is infeasible. Trying slackened version ...\n');
+	end
 	% Try slackened QP
 	[nodeCount,edgeCount,auxCount,slack,~,exitflag] = solveSlackQP(edgeStruct,kappa,tgtCount,tolCon);
 	if exitflag == -2
-		fprintf('Slackened QP is infeasible. Try a different value for kappa.\n');
+		error('Slackened QP is infeasible. Try a different value for kappa.\n');
 		return;
 	end
 end
 
-% Convexity
-nNodes = edgeStruct.nNodes;
-nEdges = edgeStruct.nEdges;
-minKappa = inf;
-for n = 1:nNodes
-	v = nodeCount(n);
-	for e = UGM_getEdges(n,edgeStruct)
-		if n == edgeStruct.edgeEnds(e,1)
-			v = v + auxCount(e);
-		else
-			v = v + auxCount(e+nEdges);
+if verbose
+	
+	% Convexity
+	nNodes = edgeStruct.nNodes;
+	nEdges = edgeStruct.nEdges;
+	minKappa = inf;
+	for n = 1:nNodes
+		v = nodeCount(n);
+		for e = UGM_getEdges(n,edgeStruct)
+			if n == edgeStruct.edgeEnds(e,1)
+				v = v + auxCount(e);
+			else
+				v = v + auxCount(e+nEdges);
+			end
+		end
+		if minKappa > v
+			minKappa = v;
 		end
 	end
-	if minKappa > v
-		minKappa = v;
+	for e = 1:nEdges
+		v = edgeCount(e);
+		v = v + auxCount(e);
+		v = v + auxCount(e+nEdges);
+		if minKappa > v
+			minKappa = v;
+		end
 	end
-end
-for e = 1:nEdges
-	v = edgeCount(e);
-	v = v + auxCount(e);
-	v = v + auxCount(e+nEdges);
-	if minKappa > v
-		minKappa = v;
+	fprintf('Solution is (%f-strongly) convex\n',minKappa);
+
+	% L2 distance^2 to target counts
+	fprintf('MSE target counts: %f\n', mean((tgtCount-[nodeCount;edgeCount]).^2));
+	fprintf('Max target counts: %f\n', max(abs(tgtCount-[nodeCount;edgeCount])));
+
+	% L2 distance^2 to variable-validity
+	if ~isempty(slack)
+		fprintf('MSE variable-validity: %f\n', mean(slack.^2));
+		fprintf('Max variable-validity: %f\n', max(abs(slack)));
 	end
+
+	% LB constraints
+	if any(edgeCount < 0) || any(auxCount < 0)
+		fprintf('LB constraints not satisfied\n');
+	end
+
 end
-fprintf('Solution is (%f-strongly) convex\n',minKappa);
-
-% L2 distance^2 to target counts
-fprintf('MSE target counts: %f\n', mean((tgtCount-[nodeCount;edgeCount]).^2));
-fprintf('Max target counts: %f\n', max(abs(tgtCount-[nodeCount;edgeCount])));
-
-% L2 distance^2 to variable-validity
-if ~isempty(slack)
-	fprintf('MSE variable-validity: %f\n', mean(slack.^2));
-	fprintf('Max variable-validity: %f\n', max(abs(slack)));
-end
-
-% LB constraints
-if any(edgeCount < 0) || any(auxCount < 0)
-	fprintf('LB constraints not satisfied\n');
-end
-
 
 %% Non-slackened QP
 function [nodeCount,edgeCount,auxCount,fval,exitflag] = solveQP(edgeStruct,kappa,tgtCount,tolCon)
