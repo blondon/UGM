@@ -4,7 +4,10 @@ function [nodeCount,edgeCount,auxCount] = UGM_ConvexBetheCounts(edgeStruct,kappa
 %
 % edgeStruct : edge structure
 % kappa : desired modulus of convexity (def: 0)
-% tgt : target counting numbers: 1 = Bethe (def), 2 = TRW
+% tgt : target counting numbers:
+%		1 = Bethe (def) (Meshi et al., UAI'09)
+%		2 = Uniform c_e=1 (Hazan & Shashua, UAI'08)
+%		3 = TRW
 % verbose : display log? (def: 1)
 %
 % nodeCount : (nNodes x 1) vector of node counting numbers
@@ -26,17 +29,18 @@ tolValid = 1e-8;
 
 % Compute target counting numbers
 if tgt == 1
-	[nodeCount_b,edgeCount_b] = UGM_BetheCounts(edgeStruct);
-	tgtCount = [nodeCount_b ; edgeCount_b];
+	[tgtNode,tgtEdge] = UGM_BetheCounts(edgeStruct);
 elseif tgt == 2
-	[nodeCount_b,edgeCount_b] = UGM_TRBPCounts(edgeStruct);
-	tgtCount = [nodeCount_b ; edgeCount_b];
+	tgtNode = [];
+	tgtEdge = ones(edgeStruct.nEdges,1);
+elseif tgt == 3
+	[tgtNode,tgtEdge] = UGM_TRBPCounts(edgeStruct);
 else
-	error('tgt must be 1 (Bethe) or 2 (TRW)')
+	error('tgt must be 1 (Bethe), 2 (unif c_e) or 3 (TRW)')
 end
 
 % Try non-slack QP
-[nodeCount,edgeCount,auxCount,~,exitflag] = solveQP(edgeStruct,kappa,tgtCount,tolCon);
+[nodeCount,edgeCount,auxCount,~,exitflag] = solveQP(edgeStruct,kappa,tgtNode,tgtEdge,tolCon);
 slack = [];
 
 % Check feasibility
@@ -45,7 +49,7 @@ if exitflag == -2
 		fprintf('QP is infeasible. Trying slackened version ...\n');
 	end
 	% Try slackened QP
-	[nodeCount,edgeCount,auxCount,slack,~,exitflag] = solveSlackQP(edgeStruct,kappa,tgtCount,tolCon);
+	[nodeCount,edgeCount,auxCount,slack,~,exitflag] = solveSlackQP(edgeStruct,kappa,tgtNode,tgtEdge,tolCon);
 	if exitflag == -2
 		error('Slackened QP is infeasible. Try a different value for kappa.\n');
 		return;
@@ -82,9 +86,14 @@ if verbose
 	fprintf('Solution is (%f-strongly) convex\n',minKappa);
 
 	% L2 distance^2 to target counts
-	fprintf('MSE target counts: %f\n', mean((tgtCount-[nodeCount;edgeCount]).^2));
-	fprintf('Max target counts: %f\n', max(abs(tgtCount-[nodeCount;edgeCount])));
-
+	if tgt == 2
+		fprintf('MSE target counts: %f\n', mean((tgtEdge-edgeCount).^2));
+		fprintf('Max target counts: %f\n', max(abs(tgtEdge-edgeCount)));
+	else
+		fprintf('MSE target counts: %f\n', mean(([tgtNode;tgtEdge]-[nodeCount;edgeCount]).^2));
+		fprintf('Max target counts: %f\n', max(abs([tgtNode;tgtEdge]-[nodeCount;edgeCount])));
+	end
+	
 	% L2 distance^2 to variable-validity
 	if ~isempty(slack)
 		fprintf('MSE variable-validity: %f\n', mean(slack.^2));
@@ -99,7 +108,7 @@ if verbose
 end
 
 %% Non-slackened QP
-function [nodeCount,edgeCount,auxCount,fval,exitflag] = solveQP(edgeStruct,kappa,tgtCount,tolCon)
+function [nodeCount,edgeCount,auxCount,fval,exitflag] = solveQP(edgeStruct,kappa,tgtNode,tgtEdge,tolCon)
 
 % Dimensions
 nNodes = double(edgeStruct.nNodes);
@@ -108,10 +117,19 @@ nCnt = nNodes + nEdges;
 nAux = 2*nEdges;
 nVar = nCnt + nAux;
 
-% Setup QP variables
-H = sparse(1:nCnt,1:nCnt,ones(nCnt,1),nVar,nVar);
-f = [-2*tgtCount ; zeros(nAux,1)];
+% Setup QP objective
+if isempty(tgtNode)
+	H = sparse(nNodes+1:nCnt,nNodes+1:nCnt,ones(nEdges,1),nVar,nVar);
+	f = [zeros(nNodes,1) ; -2*tgtEdge ; zeros(nAux,1)];
+elseif isempty(tgtEdge)
+	H = sparse(1:nNodes,1:nNodes,ones(nNodes,1),nVar,nVar);
+	f = [-2*tgtNode ; zeros(nEdges+nAux,1)];
+else
+	H = sparse(1:nCnt,1:nCnt,ones(nCnt,1),nVar,nVar);
+	f = [-2*tgtNode ; -2*tgtEdge ; zeros(nAux,1)];
+end
 
+% Setup constraints
 I = zeros(nNodes+5*nEdges,1);
 J = zeros(nNodes+5*nEdges,1);
 V = zeros(nNodes+5*nEdges,1);
@@ -170,7 +188,7 @@ auxCount = x(nCnt+1:end);
 
 
 %% QP with count + slack variable-validity
-function [nodeCount,edgeCount,auxCount,slack,fval,exitflag] = solveSlackQP(edgeStruct,kappa,tgtCount,tolCon)
+function [nodeCount,edgeCount,auxCount,slack,fval,exitflag] = solveSlackQP(edgeStruct,kappa,tgtNode,tgtEdge,tolCon)
 
 % Dimensions
 nNodes = double(edgeStruct.nNodes);
@@ -180,11 +198,23 @@ nAux = 2*nEdges;
 nSlack = nNodes;
 nVar = nCnt + nAux + nSlack;
 
-% Setup QP variables
-H = sparse([1:nCnt,nCnt+nAux+1:nVar],[1:nCnt,nCnt+nAux+1:nVar],...
-			ones(nCnt+nSlack,1),nVar,nVar);
-f = [-2*tgtCount ; zeros(nAux+nSlack,1)];
+% Setup QP objective
+if isempty(tgtNode)
+	H = sparse([nNodes+1:nCnt,nCnt+nAux+1:nVar],[nNodes+1:nCnt,nCnt+nAux+1:nVar],...
+				ones(nEdges+nSlack,1),nVar,nVar);
+	f = [zeros(nNodes,1) ; -2*tgtEdge ; zeros(nAux+nSlack,1)];
+elseif isempty(tgtEdge)
+	H = sparse([1:nNodes,nCnt+nAux+1:nVar],[1:nNodes,nCnt+nAux+1:nVar],...
+				ones(nNodes+nSlack,1),nVar,nVar);
+	H = sparse(1:nNodes,1:nNodes,ones(nNodes,1),nVar,nVar);
+	f = [-2*tgtNode ; zeros(nEdges+nAux+nSlack,1)];
+else
+	H = sparse([1:nCnt,nCnt+nAux+1:nVar],[1:nCnt,nCnt+nAux+1:nVar],...
+				ones(nCnt+nSlack,1),nVar,nVar);
+	f = [-2*tgtNode ; -2*tgtEdge ; zeros(nAux+nSlack,1)];
+end
 
+% Setup constraints
 I = zeros(nNodes+5*nEdges,1);
 J = zeros(nNodes+5*nEdges,1);
 V = zeros(nNodes+5*nEdges,1);
