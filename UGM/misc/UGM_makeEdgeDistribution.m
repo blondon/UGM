@@ -76,6 +76,41 @@ switch(type)
 			end
 		end
 		
+	case 4
+		% "Uniform 4 Comb" distribution over a grid graph
+		assert(length(varargin)>=1,...
+			'USAGE: UGM_makeEdgeDistribution(edgeStruct,3,nRows,nCols) or UGM_makeEdgeDistribution(edgeStruct,3,[nRows nCols])')
+		dims = cell2mat(varargin);
+		nRows = dims(1);
+		nCols = dims(2);
+		mu = zeros(nEdge,1);
+		edgeEnds = edgeStruct.edgeEnds;
+		for e = 1:nEdge
+			n1 = edgeEnds(e,1);
+			n2 = edgeEnds(e,2);
+			% Check whether edge is vertical or horizontal
+			%   If the edge is vertical, |n1-n2| = 1
+			if abs(n1-n2) == 1
+				% Vertical edge
+				if n1 <= nRows || n1 > nRows*(nCols-1)
+					% Pr( ver edge on sides ) = 3/4
+					mu(e) = 0.75;
+				else
+					% Pr( ver edge not on sides ) = 1/2
+					mu(e) = 0.5;
+				end
+			else
+				% Horizontal edge
+				if mod(n1,nRows) == 0 || mod(n1,nRows) == 1
+					% Pr( hor edge on sides ) = 3/4
+					mu(e) = 0.75;
+				else
+					% Pr( hor edge not on sides ) = 1/2
+					mu(e) = 0.5;
+				end
+			end
+		end
+
 end
 
 
