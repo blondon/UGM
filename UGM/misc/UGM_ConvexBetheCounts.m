@@ -59,31 +59,17 @@ end
 if verbose
 	
 	% Convexity
-	nNodes = edgeStruct.nNodes;
 	nEdges = edgeStruct.nEdges;
-	minKappa = inf;
-	for n = 1:nNodes
-		v = nodeCount(n);
-		for e = UGM_getEdges(n,edgeStruct)
-			if n == edgeStruct.edgeEnds(e,1)
-				v = v + auxCount(e);
-			else
-				v = v + auxCount(e+nEdges);
-			end
-		end
-		if minKappa > v
-			minKappa = v;
-		end
-	end
+	min_a_e = inf;
 	for e = 1:nEdges
 		v = edgeCount(e);
-		v = v + auxCount(e);
-		v = v + auxCount(e+nEdges);
-		if minKappa > v
-			minKappa = v;
+		v = v - auxCount(e);
+		v = v - auxCount(e+nEdges);
+		if min_a_e > v
+			min_a_e = v;
 		end
 	end
-	fprintf('Solution is (%f-strongly) convex\n',minKappa);
+	fprintf('Solution is at least (%f-strongly) convex\n', min_a_e/3);
 
 	% L2 distance^2 to target counts
 	if tgt == 2
@@ -130,28 +116,10 @@ else
 end
 
 % Setup constraints
-I = zeros(nNodes+5*nEdges,1);
-J = zeros(nNodes+5*nEdges,1);
-V = zeros(nNodes+5*nEdges,1);
+I = zeros(3*nEdges,1);
+J = zeros(3*nEdges,1);
+V = zeros(3*nEdges,1);
 c = 0; i = 0;
-% forall v, -(c_v + sum_{e : v in e} a_{v,e}) <= -k
-for n = 1:nNodes
-	c = c + 1;
-	i = i + 1;
-	I(i) = c;
-	J(i) = n;
-	V(i) = -1;
-	for e = UGM_getEdges(n,edgeStruct)
-		i = i + 1;
-		I(i) = c;
-		if n == edgeStruct.edgeEnds(e,1)
-			J(i) = nCnt + e;
-		else
-			J(i) = nCnt + e + nEdges;
-		end
-		V(i) = -1;
-	end
-end
 % forall e, -(c_e - sum_{v : v in e} a_{v,e}) <= -k
 for e = 1:nEdges
 	c = c + 1;
@@ -168,8 +136,8 @@ for e = 1:nEdges
 	J(i) = nCnt + e + nEdges;
 	V(i) = 1;
 end
-A = sparse(I,J,V,nCnt,nVar);
-b = -ones(nCnt,1) * kappa;
+A = sparse(I,J,V,c,nVar);
+b = -ones(c,1) * kappa * 3;
 
 [Aeq,beq] = variableValid(edgeStruct,nVar);
 
@@ -215,28 +183,10 @@ else
 end
 
 % Setup constraints
-I = zeros(nNodes+5*nEdges,1);
-J = zeros(nNodes+5*nEdges,1);
-V = zeros(nNodes+5*nEdges,1);
+I = zeros(3*nEdges,1);
+J = zeros(3*nEdges,1);
+V = zeros(3*nEdges,1);
 c = 0; i = 0;
-% forall v, -(c_v + sum_{e : v in e} a_{v,e}) <= -k
-for n = 1:nNodes
-	c = c + 1;
-	i = i + 1;
-	I(i) = c;
-	J(i) = n;
-	V(i) = -1;
-	for e = UGM_getEdges(n,edgeStruct)
-		i = i + 1;
-		I(i) = c;
-		if n == edgeStruct.edgeEnds(e,1)
-			J(i) = nCnt + e;
-		else
-			J(i) = nCnt + e + nEdges;
-		end
-		V(i) = -1;
-	end
-end
 % forall e, -(c_e - sum_{v : v in e} a_{v,e}) <= -k
 for e = 1:nEdges
 	c = c + 1;
@@ -253,9 +203,10 @@ for e = 1:nEdges
 	J(i) = nCnt + e + nEdges;
 	V(i) = 1;
 end
-A = sparse(I,J,V,nCnt,nVar);
-b = -ones(nCnt,1) * kappa;
+A = sparse(I,J,V,c,nVar);
+b = -ones(c,1) * kappa * 3;
 
+% Variable-validity slack constraints
 I = zeros(2*nNodes+2*nEdges,1);
 J = zeros(2*nNodes+2*nEdges,1);
 V = zeros(2*nNodes+2*nEdges,1);
