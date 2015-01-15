@@ -1,4 +1,4 @@
-function [nodeCount,edgeCount,auxCount] = UGM_ConvexBetheCounts(edgeStruct,kappa,tgt,verbose)
+function [nodeCount,edgeCount,auxCount,exitflags] = UGM_ConvexBetheCounts(edgeStruct,kappa,tgt,verbose)
 %
 % Computes the counting numbers for the Bethe approximation.
 %
@@ -13,6 +13,8 @@ function [nodeCount,edgeCount,auxCount] = UGM_ConvexBetheCounts(edgeStruct,kappa
 % nodeCount : (nNodes x 1) vector of node counting numbers
 % edgeCount : (nEdges x 1) vector of edge counting numbers
 % auxCount : (2*nEdges x 1) vector of auxiliary counting numbers
+% flag : 1) non-slack version successful
+%		 2) switched to slack version
 
 if ~exist('kappa','var') || isempty(kappa)
 	kappa = 0;
@@ -40,17 +42,19 @@ else
 end
 
 % Try non-slack QP
-[nodeCount,edgeCount,auxCount,~,exitflag] = solveQP(edgeStruct,kappa,tgtNode,tgtEdge,tolCon);
+[nodeCount,edgeCount,auxCount,~,exitflags.qp] = solveQP(edgeStruct,kappa,tgtNode,tgtEdge,tolCon);
 slack = [];
+exitflags.cb = 1;
 
 % Check feasibility
-if exitflag == -2
+if exitflags.qp < 0
 	if verbose
 		fprintf('QP is infeasible. Trying slackened version ...\n');
 	end
 	% Try slackened QP
-	[nodeCount,edgeCount,auxCount,slack,~,exitflag] = solveSlackQP(edgeStruct,kappa,tgtNode,tgtEdge,tolCon);
-	if exitflag == -2
+	[nodeCount,edgeCount,auxCount,slack,~,exitflags.qp] = solveSlackQP(edgeStruct,kappa,tgtNode,tgtEdge,tolCon);
+	exitflags.cb = 2;
+	if exitflags.qp < 0
 		error('Slackened QP is infeasible. Try a different value for kappa.\n');
 		return;
 	end
@@ -59,7 +63,22 @@ end
 if verbose
 	
 	% Convexity
+	nNodes = edgeStruct.nNodes;
 	nEdges = edgeStruct.nEdges;
+	min_a_n = inf;
+	for n = 1:nNodes
+		v = nodeCount(n);
+		for e = UGM_getEdges(n,edgeStruct)
+			if n == edgeStruct.edgeEnds(e,1)
+				v = v + auxCount(e);
+			else
+				v = v + auxCount(e+nEdges);
+			end
+		end
+		if min_a_n > v
+			min_a_n = v;
+		end
+	end
 	min_a_e = inf;
 	for e = 1:nEdges
 		v = edgeCount(e);
@@ -69,7 +88,9 @@ if verbose
 			min_a_e = v;
 		end
 	end
-	fprintf('Solution is at least (%f-strongly) convex\n', min_a_e/3);
+	if (min_a_n >= 0) && (min_a_e >= 0)
+		fprintf('Solution is at least (%f-strongly) convex\n', min_a_e/3);
+	end
 
 	% MSE, L1 distance to target counts
 	if tgt == 2
@@ -121,11 +142,29 @@ else
 	f = [-2*tgtNode ; -2*tgtEdge ; zeros(nAux,1)];
 end
 
-% Setup constraints
-I = zeros(3*nEdges,1);
-J = zeros(3*nEdges,1);
-V = zeros(3*nEdges,1);
+% Inequality constraints (strong convexity conditions)
+I = zeros(nNodes+5*nEdges,1);
+J = zeros(nNodes+5*nEdges,1);
+V = zeros(nNodes+5*nEdges,1);
 c = 0; i = 0;
+% forall v, -(c_v + sum_{e : v in e} a_{v,e}) <= 0
+for n = 1:nNodes
+	c = c + 1;
+	i = i + 1;
+	I(i) = c;
+	J(i) = n;
+	V(i) = -1;
+	for e = UGM_getEdges(n,edgeStruct)
+		i = i + 1;
+		I(i) = c;
+		if n == edgeStruct.edgeEnds(e,1)
+			J(i) = nCnt + e;
+		else
+			J(i) = nCnt + e + nEdges;
+		end
+		V(i) = -1;
+	end
+end
 % forall e, -(c_e - sum_{v : v in e} a_{v,e}) <= -k
 for e = 1:nEdges
 	c = c + 1;
@@ -143,10 +182,12 @@ for e = 1:nEdges
 	V(i) = 1;
 end
 A = sparse(I,J,V,c,nVar);
-b = -ones(c,1) * kappa * 3;
+b = [zeros(nNodes,1) ; -ones(nEdges,1) * kappa * 3];
 
+% Equality constraints (variable validity)
 [Aeq,beq] = variableValid(edgeStruct,nVar);
 
+% Upper/lower bounds
 lb = [-inf(nCnt,1) ; zeros(nAux,1)];
 ub = [inf(nCnt,1) ; inf(nAux,1)];
 
@@ -188,11 +229,29 @@ else
 	f = [-2*tgtNode ; -2*tgtEdge ; zeros(nAux+nSlack,1)];
 end
 
-% Setup constraints
-I = zeros(3*nEdges,1);
-J = zeros(3*nEdges,1);
-V = zeros(3*nEdges,1);
+% Inequality constraints (strong convexity conditions)
+I = zeros(nNodes+5*nEdges,1);
+J = zeros(nNodes+5*nEdges,1);
+V = zeros(nNodes+5*nEdges,1);
 c = 0; i = 0;
+% forall v, -(c_v + sum_{e : v in e} a_{v,e}) <= 0
+for n = 1:nNodes
+	c = c + 1;
+	i = i + 1;
+	I(i) = c;
+	J(i) = n;
+	V(i) = -1;
+	for e = UGM_getEdges(n,edgeStruct)
+		i = i + 1;
+		I(i) = c;
+		if n == edgeStruct.edgeEnds(e,1)
+			J(i) = nCnt + e;
+		else
+			J(i) = nCnt + e + nEdges;
+		end
+		V(i) = -1;
+	end
+end
 % forall e, -(c_e - sum_{v : v in e} a_{v,e}) <= -k
 for e = 1:nEdges
 	c = c + 1;
@@ -210,9 +269,9 @@ for e = 1:nEdges
 	V(i) = 1;
 end
 A = sparse(I,J,V,c,nVar);
-b = -ones(c,1) * kappa * 3;
+b = [zeros(nNodes,1) ; -ones(nEdges,1) * kappa * 3];
 
-% Variable-validity slack constraints
+% Equality constraints (slackened variable validity)
 I = zeros(2*nNodes+2*nEdges,1);
 J = zeros(2*nNodes+2*nEdges,1);
 V = zeros(2*nNodes+2*nEdges,1);
@@ -237,6 +296,7 @@ end
 Aeq = sparse(I,J,V,nNodes,nVar);
 beq = ones(nNodes,1);
 
+% Upper/lower bounds
 lb = [-inf(nCnt,1) ; zeros(nAux,1) ; -inf(nSlack,1)];
 ub = [inf(nCnt,1) ; inf(nAux,1) ; inf(nSlack,1)];
 
