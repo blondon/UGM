@@ -71,19 +71,25 @@ if verbose
 	end
 	fprintf('Solution is at least (%f-strongly) convex\n', min_a_e/3);
 
-	% L2 distance^2 to target counts
+	% MSE, L1 distance to target counts
 	if tgt == 2
-		fprintf('MSE target counts: %f\n', mean((tgtEdge-edgeCount).^2));
-		fprintf('Max target counts: %f\n', max(abs(tgtEdge-edgeCount)));
+		fprintf('MSE tgt (edge) counts: %f \n', mean((tgtEdge-edgeCount).^2));
+		fprintf('Max tgt (edge) counts: %f \n', max(abs(tgtEdge-edgeCount)));
 	else
-		fprintf('MSE target counts: %f\n', mean(([tgtNode;tgtEdge]-[nodeCount;edgeCount]).^2));
-		fprintf('Max target counts: %f\n', max(abs([tgtNode;tgtEdge]-[nodeCount;edgeCount])));
+		fprintf('MSE tgt counts: %f node: %f edge: %f \n', ...
+			mean(([tgtNode;tgtEdge]-[nodeCount;edgeCount]).^2), ...
+			mean((tgtNode-nodeCount).^2), ...
+			mean((tgtEdge-edgeCount).^2));
+		fprintf('Max tgt counts: %f node: %f edge: %f \n', ...
+			max(abs([tgtNode;tgtEdge]-[nodeCount;edgeCount])), ...
+			max(abs(tgtNode-nodeCount)), ...
+			max(abs(tgtEdge-edgeCount)));
 	end
 	
 	% L2 distance^2 to variable-validity
 	if ~isempty(slack)
-		fprintf('MSE variable-validity: %f\n', mean(slack.^2));
-		fprintf('Max variable-validity: %f\n', max(abs(slack)));
+		fprintf('MSE var-validity: %f\n', mean(slack.^2));
+		fprintf('Max var-validity: %f\n', max(abs(slack)));
 	end
 
 	% LB constraints
