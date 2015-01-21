@@ -1,4 +1,4 @@
-function [nodeCount,edgeCount,auxCount,exitflags] = UGM_ConvexBetheCounts(edgeStruct,kappa,tgt,verbose)
+function [nodeCount,edgeCount,auxCount,exitflags] = UGM_ConvexBetheCounts(edgeStruct,kappa,tgt,verbose,C)
 %
 % Computes the counting numbers for the Bethe approximation.
 %
@@ -9,6 +9,7 @@ function [nodeCount,edgeCount,auxCount,exitflags] = UGM_ConvexBetheCounts(edgeSt
 %		2 = Uniform c_e=1 (Hazan & Shashua, UAI'08)
 %		3 = TRW
 % verbose : display log? (def: 1)
+% C : free parameter used to scale slack variables
 %
 % nodeCount : (nNodes x 1) vector of node counting numbers
 % edgeCount : (nEdges x 1) vector of edge counting numbers
@@ -24,6 +25,9 @@ if ~exist('tgt','var') || isempty(tgt)
 end
 if ~exist('verbose','var') || isempty(verbose)
 	verbose = 1;
+end
+if ~exist('C','var') || isempty(C)
+	C = 1;
 end
 
 tolCon = 1e-8;
@@ -52,7 +56,7 @@ if exitflags.qp < 0
 		fprintf('QP is infeasible. Trying slackened version ...\n');
 	end
 	% Try slackened QP
-	[nodeCount,edgeCount,auxCount,slack,~,exitflags.qp] = solveSlackQP(edgeStruct,kappa,tgtNode,tgtEdge,tolCon);
+	[nodeCount,edgeCount,auxCount,slack,~,exitflags.qp] = solveSlackQP(edgeStruct,kappa,tgtNode,tgtEdge,tolCon,C);
 	exitflags.cb = 2;
 	if exitflags.qp < 0
 		error('Slackened QP is infeasible. Try a different value for kappa.\n');
@@ -203,7 +207,7 @@ auxCount = x(nCnt+1:end);
 
 
 %% QP with count + slack variable-validity
-function [nodeCount,edgeCount,auxCount,slack,fval,exitflag] = solveSlackQP(edgeStruct,kappa,tgtNode,tgtEdge,tolCon)
+function [nodeCount,edgeCount,auxCount,slack,fval,exitflag] = solveSlackQP(edgeStruct,kappa,tgtNode,tgtEdge,tolCon,C)
 
 % Dimensions
 nNodes = double(edgeStruct.nNodes);
@@ -227,6 +231,10 @@ else
 				ones(nCnt+nSlack,1),nVar,nVar);
 	f = [-2*tgtNode ; -2*tgtEdge ; zeros(nAux+nSlack,1)];
 end
+
+% Scal-up slack variables in the objective function
+H(nCnt+nAux+1:end,nCnt+nAux+1:end) = C * H(nCnt+nAux+1:end,nCnt+nAux+1:end);
+f(nCnt+nAux+1:end) = C * f(nCnt+nAux+1:end);
 
 % Inequality constraints (strong convexity conditions)
 I = zeros(nNodes+5*nEdges,1);
