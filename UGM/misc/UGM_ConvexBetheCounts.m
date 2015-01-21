@@ -221,7 +221,6 @@ if isempty(tgtNode)
 elseif isempty(tgtEdge)
 	H = sparse([1:nNodes,nCnt+nAux+1:nVar],[1:nNodes,nCnt+nAux+1:nVar],...
 				ones(nNodes+nSlack,1),nVar,nVar);
-	H = sparse(1:nNodes,1:nNodes,ones(nNodes,1),nVar,nVar);
 	f = [-2*tgtNode ; zeros(nEdges+nAux+nSlack,1)];
 else
 	H = sparse([1:nCnt,nCnt+nAux+1:nVar],[1:nCnt,nCnt+nAux+1:nVar],...
