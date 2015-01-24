@@ -8,6 +8,7 @@ function mu = UGM_makeEdgeDistribution(edgeStruct,type,varargin)
 %			1 : (def) Generates random MSTs until all edges covered at least once
 %			2 : Computes all spanning trees of the dense graph
 %			3 : Approximate edge distribution of a grid (requires [nRows nCols])
+%			4 : Covers the edges of a grid with 4 chains (requires [nRows nCols])
 
 if nargin < 2
 	type = 1;
@@ -77,7 +78,7 @@ switch(type)
 		end
 		
 	case 4
-		% "Uniform 4 Comb" distribution over a grid graph
+		% Uniform distribution over chain covering
 		assert(length(varargin)>=1,...
 			'USAGE: UGM_makeEdgeDistribution(edgeStruct,3,nRows,nCols) or UGM_makeEdgeDistribution(edgeStruct,3,[nRows nCols])')
 		dims = cell2mat(varargin);
