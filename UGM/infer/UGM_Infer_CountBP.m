@@ -85,10 +85,8 @@ else
 		% Compute Bethe free energy
 		Energy1 = 0; Energy2 = 0;
 		Entropy1 = 0; Entropy2 = 0;
-		nodeBel = nodeBel+eps;
-		edgeBel = edgeBel+eps;
 		for n = 1:nNodes
-			nb = nodeBel(n,1:nStates(n));
+			nb = nodeBel(n,1:nStates(n)) + eps;
 			np = nodePot(n,1:nStates(n));
 			
 			% Node Entropy (can get divide by zero if beliefs at 0)
@@ -105,7 +103,7 @@ else
 		for e = 1:nEdges
 			n1 = edgeEnds(e,1);
 			n2 = edgeEnds(e,2);
-			eb = edgeBel(1:nStates(n1),1:nStates(n2),e);
+			eb = edgeBel(1:nStates(n1),1:nStates(n2),e) + eps;
 			ep = edgePot(1:nStates(n1),1:nStates(n2),e);
 
 			% Pairwise Entropy (can get divide by zero if beliefs at 0)
