@@ -92,7 +92,7 @@ if verbose
 			min_a_e = v;
 		end
 	end
-	if (min_a_n >= 0) && (min_a_e >= 0)
+	if (min_a_n+eps >= 0) && (min_a_e+eps >= 0)
 		fprintf('Solution is at least (%f-strongly) convex\n', min_a_e/3);
 	end
 
