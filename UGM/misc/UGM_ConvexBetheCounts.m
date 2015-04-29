@@ -1,4 +1,4 @@
-function [nodeCount,edgeCount,auxCount,exitflags] = UGM_ConvexBetheCounts(edgeStruct,kappa,tgt,verbose,C)
+function [nodeCount,edgeCount,auxCount,exitflags] = UGM_ConvexBetheCounts(edgeStruct,kappa,tgt,verbose,C,alwaysSlack)
 %
 % Computes the counting numbers for the Bethe approximation.
 %
@@ -16,6 +16,7 @@ function [nodeCount,edgeCount,auxCount,exitflags] = UGM_ConvexBetheCounts(edgeSt
 % auxCount : (2*nEdges x 1) vector of auxiliary counting numbers
 % flag : 1) non-slack version successful
 %		 2) switched to slack version
+%		 3) only ran slack version and was successful
 
 if ~exist('kappa','var') || isempty(kappa)
 	kappa = 0;
@@ -28,6 +29,9 @@ if ~exist('verbose','var') || isempty(verbose)
 end
 if ~exist('C','var') || isempty(C)
 	C = 1;
+end
+if ~exist('alwaysSlack','var') || isempty(alwaysSlack)
+	alwaysSlack = 0;
 end
 
 tolCon = 1e-8;
@@ -45,22 +49,32 @@ else
 	error('tgt must be 1 (Bethe), 2 (unif c_e) or 3 (TRW)')
 end
 
-% Try non-slack QP
-[nodeCount,edgeCount,auxCount,~,exitflags.qp] = solveQP(edgeStruct,kappa,tgtNode,tgtEdge,tolCon);
-slack = [];
-exitflags.cb = 1;
-
-% Check feasibility
-if exitflags.qp < 0
-	if verbose
-		fprintf('QP is infeasible. Trying slackened version ...\n');
-	end
+if alwaysSlack
 	% Try slackened QP
 	[nodeCount,edgeCount,auxCount,slack,~,exitflags.qp] = solveSlackQP(edgeStruct,kappa,tgtNode,tgtEdge,tolCon,C);
-	exitflags.cb = 2;
+	exitflags.cb = 3;
 	if exitflags.qp < 0
 		error('Slackened QP is infeasible. Try a different value for kappa.\n');
 		return;
+	end
+else
+	% Try non-slack QP first
+	[nodeCount,edgeCount,auxCount,~,exitflags.qp] = solveQP(edgeStruct,kappa,tgtNode,tgtEdge,tolCon);
+	slack = [];
+	exitflags.cb = 1;
+
+	% Check feasibility
+	if exitflags.qp < 0
+		if verbose
+			fprintf('QP is infeasible. Trying slackened version ...\n');
+		end
+		% Try slackened QP
+		[nodeCount,edgeCount,auxCount,slack,~,exitflags.qp] = solveSlackQP(edgeStruct,kappa,tgtNode,tgtEdge,tolCon,C);
+		exitflags.cb = 2;
+		if exitflags.qp < 0
+			error('Slackened QP is infeasible. Try a different value for kappa.\n');
+			return;
+		end
 	end
 end
 
