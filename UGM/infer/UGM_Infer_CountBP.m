@@ -1,4 +1,4 @@
-function [nodeBel,edgeBel,logZ,H] = UGM_Infer_CountBP(nodePot,edgePot,edgeStruct,nodeCount,edgeCount)
+function [nodeBel,edgeBel,logZ,H,convergedStatus] = UGM_Infer_CountBP(nodePot,edgePot,edgeStruct,nodeCount,edgeCount)
 
 if nargin < 5
 	if isfield(edgeStruct,'nodeCount')
@@ -21,7 +21,7 @@ else
 end
 
 if edgeStruct.useMex
-    [nodeBel,edgeBel,logZ,H] = UGM_Infer_CountBPC(...
+    [nodeBel,edgeBel,logZ,H,convergedStatus] = UGM_Infer_CountBPC(...
 		nodePot,edgePot,nodeCount,edgeCount,...
 		edgeStruct.edgeEnds,edgeStruct.nStates,edgeStruct.V,edgeStruct.E,...
 		int32(edgeStruct.maxIter),convTol);
@@ -35,7 +35,7 @@ else
 	maxState = max(nStates);
     
 	% Compute messages
-	[imsg,omsg] = UGM_CountBP(nodePot,edgePot,nodeCount,edgeCount,edgeStruct,convTol,0);
+	[imsg,omsg,convergedStatus] = UGM_CountBP(nodePot,edgePot,nodeCount,edgeCount,edgeStruct,convTol,0);
 
     % Compute nodeBel
 	nodeBel = zeros(nNodes,maxState);

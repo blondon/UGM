@@ -12,7 +12,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 	
 	double *nodePot,*edgePot,*logNodePot,*logEdgePot,
 			*nodeCount,*edgeCount,*auxNodeCount,
-			*nodeBel,*edgeBel,*logZ,*H,
+			*nodeBel,*edgeBel,*logZ,*H,*convergedStatus,
 			*imsg,*omsg,*imsg_old,*omsg_old,*tmp1,*tmp2,
 			z,sumAbsDiff,convTol,
 			energy1,energy2,entropy1,entropy2;
@@ -49,10 +49,13 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 	plhs[1] = mxCreateNumericArray(3,dims,mxDOUBLE_CLASS,mxREAL);
 	plhs[2] = mxCreateDoubleMatrix(1,1,mxREAL);
 	plhs[3] = mxCreateDoubleMatrix(1,1,mxREAL);
+	plhs[4] = mxCreateDoubleMatrix(1,1,mxREAL);
 	nodeBel = mxGetPr(plhs[0]);
 	edgeBel = mxGetPr(plhs[1]);
 	logZ = mxGetPr(plhs[2]);
 	H = mxGetPr(plhs[3]);
+	convergedStatus = mxGetPr(plhs[4]);
+	
 
 	/* Precompute log(nodePot), log(edgePot) */
 	logNodePot = mxCalloc(nNodes*maxState,sizeof(double));
@@ -204,12 +207,18 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 		}
 	}
 	
-	/*
-	if(iter == maxIter)
-		printf("CountBP did not converge after %d iterations\n",maxIter);
-	printf("Stopped after %d iterations\n",iter);
-	 */
-	
+	/* Set convergence status in output. */
+	if (notConverged == 0) {
+		/* If converged, return number of iterations. */
+		convergedStatus[0] = iter;		
+		/*printf("CountBP converged after %d iterations\n",iter);*/
+	}
+	else {
+		/* If not converged, return -1. */
+		convergedStatus[0] = -1;
+		/*printf("CountBP did not converge after %d iterations\n",maxIter);*/
+	}
+		
 	/* Convert to exponential space */
 	for (e = 0; e < nEdges; e++)
 	{

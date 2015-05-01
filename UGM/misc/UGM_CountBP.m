@@ -1,4 +1,4 @@
-function [imsg,omsg] = UGM_CountBP(nodePot,edgePot,nodeCount,edgeCount,edgeStruct,convTol,maximize)
+function [imsg,omsg,convergedStatus] = UGM_CountBP(nodePot,edgePot,nodeCount,edgeCount,edgeStruct,convTol,maximize)
 
 [nNodes,nState] = size(nodePot);
 nEdges = size(edgePot,3);
@@ -23,6 +23,9 @@ for n = 1:nNodes
 	neighbs = UGM_getEdges(n,edgeStruct);
 	auxNodeCount(n) = nodeCount(n) + sum(edgeCount(neighbs));
 end
+
+% Convergence status
+convergedStatus = -1;
 
 % Main loop
 for i = 1:edgeStruct.maxIter
@@ -76,10 +79,8 @@ for i = 1:edgeStruct.maxIter
 	end
 	
 	% Check convergence
-% 	fprintf('sum-abs-diff = %f, max-abs-diff = %f\n', ...
-% 		sum([abs(imsg(:)-imsg_old(:));abs(omsg(:)-omsg_old(:))]), ...
-% 		max([abs(imsg(:)-imsg_old(:));abs(omsg(:)-omsg_old(:))]));
 	if all(abs(imsg(:)-imsg_old(:)) < convTol) && all(abs(omsg(:)-omsg_old(:)) < convTol)
+		convergedStatus = i;
 		break
 	end
 	
@@ -89,10 +90,9 @@ for i = 1:edgeStruct.maxIter
 	
 end
 
-if i == edgeStruct.maxIter
+if convergedStatus == -1
 	fprintf('CountBP did not converge after %d iterations\n',edgeStruct.maxIter);
 end
-% fprintf('CountBP stopped after %d iterations\n',i);
 
 % Convert to exponential space
 imsg = exp(imsg);
